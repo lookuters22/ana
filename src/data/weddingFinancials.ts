@@ -176,6 +176,41 @@ function fmtMoney(amount: number, currency: string): string {
   }
 }
 
+/**
+ * One-line cash-flow hint for Pipeline cards (demo; derived from invoices).
+ */
+export function getPipelineMoneyLine(weddingRouteId: string): string | null {
+  const { invoices } = getFinancialsForWedding(weddingRouteId);
+  if (invoices.length === 0) return null;
+
+  if (invoices.some((i) => i.status === "partial")) {
+    const inv = invoices.find((i) => i.status === "partial");
+    return inv ? `Partial payment · ${fmtMoney(inv.amount, inv.currency)}` : "Partial payment";
+  }
+
+  const overdue = invoices.filter((i) => i.status === "overdue");
+  if (overdue.length > 0) {
+    const o = overdue[0];
+    return `${fmtMoney(o.amount, o.currency)} overdue`;
+  }
+
+  const paid = invoices.filter((i) => i.status === "paid");
+  const open = invoices.filter((i) => i.status === "sent" || i.status === "draft");
+
+  if (paid.length > 0 && open.length > 0) {
+    const o = open[0];
+    return `Retainer paid · ${fmtMoney(o.amount, o.currency)} balance due`;
+  }
+  if (open.length > 0 && paid.length === 0) {
+    const o = open[0];
+    return `${fmtMoney(o.amount, o.currency)} balance due`;
+  }
+  if (paid.length > 0 && open.length === 0) {
+    return "Retainer paid";
+  }
+  return null;
+}
+
 /** Studio-wide rows for the Financials hub (demo; built-in weddings only). */
 export function listFinancialsOverview(): FinancialsOverviewRow[] {
   const rows: FinancialsOverviewRow[] = [];
