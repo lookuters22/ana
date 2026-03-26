@@ -17,6 +17,7 @@ import {
   Users,
   X,
 } from "lucide-react";
+import { SupportAssistantWidget } from "../components/SupportAssistantWidget";
 
 const nav = [
   { to: "/", label: "Today", icon: LayoutGrid, end: true },
@@ -84,7 +85,7 @@ export function DashboardLayout() {
             </NavLink>
           ))}
         </nav>
-        <div className="border-t border-white/[0.06] px-3 py-4">
+        <div className="border-t border-white/[0.06] px-3 py-4 space-y-1">
           <NavLink to="/settings" className={({ isActive }) => ["flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-medium transition-colors", isActive ? "bg-white/10 text-white" : "text-white/55 hover:bg-white/[0.06] hover:text-white"].join(" ")}>
             <Settings className="h-[18px] w-[18px]" strokeWidth={1.75} />
             Settings
@@ -139,6 +140,7 @@ export function DashboardLayout() {
         </header>
         <main className="min-h-0 flex-1 px-8 py-8"><Outlet /></main>
       </div>
+      <SupportAssistantWidget />
       {helpOpen ? (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-ink/40 px-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="help-title">
           <div className="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-border bg-surface p-6 shadow-xl">

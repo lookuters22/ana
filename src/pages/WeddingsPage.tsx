@@ -1,17 +1,26 @@
 import { Link } from "react-router-dom";
-import { ArrowUpRight, Calendar, MapPin } from "lucide-react";
-import { listWeddingsOrdered } from "../data/weddingCatalog";
+import { ArrowUpRight, Calendar, MapPin, Plus } from "lucide-react";
+import { listAllWeddingsForDashboard } from "../data/weddingRegistry";
 
 export function WeddingsPage() {
-  const rows = listWeddingsOrdered();
+  const rows = listAllWeddingsForDashboard();
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-ink">Weddings</h1>
-        <p className="mt-2 max-w-2xl text-[14px] text-ink-muted">
-          Every active project in one place. Open a wedding for timeline, threads, tasks, files, and the composer.
-        </p>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-ink">Weddings</h1>
+          <p className="mt-2 max-w-2xl text-[14px] text-ink-muted">
+            Every active project in one place. Open a wedding for timeline, threads, tasks, files, and the composer.
+          </p>
+        </div>
+        <Link
+          to="/weddings/new"
+          className="inline-flex shrink-0 items-center gap-2 rounded-full border border-border bg-surface px-4 py-2 text-[13px] font-semibold text-ink shadow-sm ring-1 ring-black/[0.04] transition hover:border-accent/35 hover:text-accent"
+        >
+          <Plus className="h-4 w-4" strokeWidth={2} />
+          Add wedding
+        </Link>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">

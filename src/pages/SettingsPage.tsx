@@ -1,4 +1,11 @@
-export function SettingsPage() {
+import { Link } from "react-router-dom";
+
+type SettingsPageProps = {
+  /** When false, hides the cross-link to the manager shell (used from `/manager/settings`). */
+  showManagerPreviewLink?: boolean;
+};
+
+export function SettingsPage({ showManagerPreviewLink = true }: SettingsPageProps = {}) {
   return (
     <div className="mx-auto max-w-3xl space-y-8">
       <div>
@@ -6,6 +13,14 @@ export function SettingsPage() {
         <p className="mt-2 text-[14px] text-ink-muted">
           Studio profile, integrations, and how Atelier speaks on your behalf.
         </p>
+        {showManagerPreviewLink ? (
+          <p className="mt-3 text-[13px] text-ink-muted">
+            <Link to="/manager/today" className="font-semibold text-accent hover:text-accent-hover">
+              Studio manager preview
+            </Link>
+            {" — "}multi-photographer overview and team filtering (demo).
+          </p>
+        ) : null}
       </div>
 
       <section className="rounded-2xl border border-border bg-surface p-6 shadow-sm">

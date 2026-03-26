@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CalendarDays, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { getPhotographerIdForWedding } from "../data/managerPhotographers";
 
 const STORAGE_KEY = "atelier-calendar-events";
 
@@ -102,7 +103,19 @@ type ModalState =
       weddingId: string;
     };
 
-export function CalendarPage() {
+export type CalendarPageProps = {
+  weddingLinkBase?: string;
+  filterPhotographerId?: "all" | string;
+};
+
+function eventVisibleForPhotographer(e: CalEvent, filter: string): boolean {
+  if (filter === "all") return true;
+  if (!e.weddingId) return false;
+  return getPhotographerIdForWedding(e.weddingId) === filter;
+}
+
+export function CalendarPage(props: CalendarPageProps = {}) {
+  const { weddingLinkBase = "/wedding", filterPhotographerId = "all" } = props;
   const [viewDate, setViewDate] = useState(() => new Date(2026, 2, 1));
   const [events, setEvents] = useState<CalEvent[]>(SEED_EVENTS);
   const [modal, setModal] = useState<ModalState>({ open: false });
@@ -128,6 +141,11 @@ export function CalendarPage() {
     }
   }, [events]);
 
+  const visibleEvents = useMemo(
+    () => events.filter((e) => eventVisibleForPhotographer(e, filterPhotographerId)),
+    [events, filterPhotographerId],
+  );
+
   const y = viewDate.getFullYear();
   const m = viewDate.getMonth();
   const cells = useMemo(() => buildCalendarCells(y, m), [y, m]);
@@ -135,19 +153,19 @@ export function CalendarPage() {
 
   const eventsByDate = useMemo(() => {
     const map = new Map<string, CalEvent[]>();
-    for (const e of events) {
+    for (const e of visibleEvents) {
       const list = map.get(e.dateISO) ?? [];
       list.push(e);
       map.set(e.dateISO, list);
     }
     return map;
-  }, [events]);
+  }, [visibleEvents]);
 
   const agendaEvents = useMemo(() => {
-    return events
+    return visibleEvents
       .filter((e) => e.dateISO.startsWith(monthPrefix))
       .sort((a, b) => a.dateISO.localeCompare(b.dateISO) || a.title.localeCompare(b.title));
-  }, [events, monthPrefix]);
+  }, [visibleEvents, monthPrefix]);
 
   const openAdd = useCallback((dateISO: string) => {
     setModal({
@@ -375,7 +393,7 @@ export function CalendarPage() {
                       <p className="mt-1 text-[13px] text-ink-muted">{e.sub}</p>
                       {e.weddingId ? (
                         <Link
-                          to={`/wedding/${e.weddingId}`}
+                          to={`${weddingLinkBase}/${e.weddingId}`}
                           className="mt-2 inline-flex text-[12px] font-semibold text-accent hover:text-accent-hover"
                           onClick={(ev) => ev.stopPropagation()}
                           onMouseDown={(ev) => ev.stopPropagation()}

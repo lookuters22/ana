@@ -1,44 +1,71 @@
 import { Link } from "react-router-dom";
+import { contactsByGroup, groupLabel, type StakeholderGroup } from "../data/contactsDirectory";
 
-const people = [
-  { name: "Elena Rossi", role: "Planner", email: "elena@rossiplans.it", weddings: ["lake-como"] },
-  { name: "Sofia Marin", role: "Bride", email: "sofia@email.com", weddings: ["lake-como"] },
-  { name: "Priya Kapoor", role: "Bride", email: "priya@email.com", weddings: ["london"] },
-];
+const GROUP_ORDER: StakeholderGroup[] = ["couple", "planning", "vendor"];
 
 export function ContactsPage() {
+  const grouped = contactsByGroup();
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight text-ink">Contacts</h1>
         <p className="mt-2 max-w-2xl text-[14px] text-ink-muted">
-          Everyone you have ever spoken with—deduped by email, linked back to weddings.
+          Everyone you have ever spoken with—deduped by email, linked back to weddings. Primary contacts and vendors are highlighted.
         </p>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
-        <div className="grid grid-cols-[1.2fr_0.8fr_1.4fr_0.9fr] gap-px bg-border text-[12px] font-semibold uppercase tracking-wide text-ink-faint">
-          <div className="bg-surface px-4 py-3">Name</div>
-          <div className="bg-surface px-4 py-3">Role</div>
-          <div className="bg-surface px-4 py-3">Email</div>
-          <div className="bg-surface px-4 py-3">Weddings</div>
-        </div>
-        {people.map((p) => (
-          <div
-            key={p.email}
-            className="grid grid-cols-[1.2fr_0.8fr_1.4fr_0.9fr] gap-px border-t border-border bg-border text-[13px]"
-          >
-            <div className="bg-surface px-4 py-3 font-semibold text-ink">{p.name}</div>
-            <div className="bg-surface px-4 py-3 text-ink-muted">{p.role}</div>
-            <div className="bg-surface px-4 py-3 text-ink-muted">{p.email}</div>
-            <div className="bg-surface px-4 py-3">
-              {p.weddings.map((id) => (
-                <Link key={id} to={`/wedding/${id}`} className="font-semibold text-accent hover:text-accent-hover">
-                  View
-                </Link>
-              ))}
+      <div className="space-y-8">
+        {GROUP_ORDER.map((g) => (
+          <section key={g}>
+            <h2 className="text-[11px] font-semibold uppercase tracking-wide text-ink-faint">{groupLabel(g)}</h2>
+            <div className="mt-3 overflow-x-auto rounded-2xl border border-border bg-surface shadow-sm">
+              <div className="min-w-[640px]">
+                <div className="grid grid-cols-[1.15fr_0.85fr_1.35fr_1.05fr_0.9fr] gap-px bg-border text-[12px] font-semibold uppercase tracking-wide text-ink-faint">
+                  <div className="bg-surface px-4 py-3">Name</div>
+                  <div className="bg-surface px-4 py-3">Role</div>
+                  <div className="bg-surface px-4 py-3">Email</div>
+                  <div className="bg-surface px-4 py-3">Badges</div>
+                  <div className="bg-surface px-4 py-3">Weddings</div>
+                </div>
+                {grouped[g].map((p) => (
+                  <div
+                    key={p.email}
+                    className="grid grid-cols-[1.15fr_0.85fr_1.35fr_1.05fr_0.9fr] gap-px border-t border-border bg-border text-[13px]"
+                  >
+                    <div className="bg-surface px-4 py-3 font-semibold text-ink">{p.name}</div>
+                    <div className="bg-surface px-4 py-3 text-ink-muted">{p.role}</div>
+                    <div className="bg-surface px-4 py-3 text-ink-muted">{p.email}</div>
+                    <div className="flex flex-wrap items-center gap-1.5 bg-surface px-4 py-3">
+                      {p.authority === "primary" ? (
+                        <span className="rounded-full bg-accent/15 px-2.5 py-0.5 text-[11px] font-semibold text-accent">Primary contact</span>
+                      ) : null}
+                      {p.authority === "secondary" ? (
+                        <span className="rounded-full bg-canvas px-2.5 py-0.5 text-[11px] font-semibold text-ink-muted">Secondary</span>
+                      ) : null}
+                      {p.logisticsRole ? (
+                        <span className="rounded-full border border-border px-2.5 py-0.5 text-[11px] font-medium text-ink-muted">
+                          {p.logisticsRole}
+                        </span>
+                      ) : null}
+                      {!p.authority && !p.logisticsRole ? (
+                        <span className="text-[12px] text-ink-faint">—</span>
+                      ) : null}
+                    </div>
+                    <div className="bg-surface px-4 py-3">
+                      <div className="flex flex-wrap gap-2">
+                        {p.weddings.map((id) => (
+                          <Link key={id} to={`/wedding/${id}`} className="font-semibold text-accent hover:text-accent-hover">
+                            View
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          </section>
         ))}
       </div>
     </div>

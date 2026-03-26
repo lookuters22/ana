@@ -26,3 +26,24 @@
     @apply bg-canvas text-ink m-0 min-h-screen;
   }
 }
+
+/* Pending-approval draft: marching dashes (SVG stroke) */
+@keyframes pending-draft-march {
+  to {
+    stroke-dashoffset: -10;
+  }
+}
+
+@layer utilities {
+  .pending-draft-border-dash {
+    stroke-dasharray: 6 4;
+    stroke-dashoffset: 0;
+    animation: pending-draft-march 0.85s linear infinite;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pending-draft-border-dash {
+    animation: none;
+  }
+}

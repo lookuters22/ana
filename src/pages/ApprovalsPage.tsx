@@ -1,26 +1,17 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Check, PenLine } from "lucide-react";
-
-const drafts = [
-  {
-    wedding: "Sofia & Marco",
-    weddingId: "lake-como",
-    to: "Elena Rossi Planning",
-    subject: "Re: Timeline v3 — photography coverage",
-    excerpt:
-      "Confirmed—we will cover the rehearsal toast with one lead and one associate, ambient-only, per the agreed package. Please let us know if you need vendor headcounts updated.",
-  },
-  {
-    wedding: "Priya & Daniel",
-    weddingId: "london",
-    to: "Priya Kapoor",
-    subject: "Re: Consultation follow-up",
-    excerpt:
-      "It would be our honor to add a second photographer for the ceremony portion only. I have attached a concise addendum for your review—no pressure to decide today.",
-  },
-];
+import { ApprovalDraftAiModal } from "../components/ApprovalDraftAiModal";
+import { PHOTOGRAPHER_APPROVAL_DRAFTS, type ApprovalDraft } from "../data/approvalDrafts";
 
 export function ApprovalsPage() {
+  const [drafts, setDrafts] = useState<ApprovalDraft[]>(() => [...PHOTOGRAPHER_APPROVAL_DRAFTS]);
+  const [editing, setEditing] = useState<ApprovalDraft | null>(null);
+
+  function applyBody(id: string, body: string) {
+    setDrafts((prev) => prev.map((d) => (d.id === id ? { ...d, body } : d)));
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -33,7 +24,7 @@ export function ApprovalsPage() {
       <div className="grid gap-4 lg:grid-cols-2">
         {drafts.map((d) => (
           <div
-            key={d.subject}
+            key={d.id}
             className="flex flex-col rounded-2xl border border-border bg-surface p-5 shadow-[0_1px_2px_rgba(26,28,30,0.04),0_12px_32px_rgba(26,28,30,0.06)]"
           >
             <div className="flex items-start justify-between gap-3">
@@ -46,7 +37,7 @@ export function ApprovalsPage() {
                 Open context
               </Link>
             </div>
-            <p className="mt-4 flex-1 text-[14px] leading-relaxed text-ink-muted">{d.excerpt}</p>
+            <p className="mt-4 flex-1 text-[14px] leading-relaxed text-ink-muted">{d.body}</p>
             <div className="mt-5 flex flex-wrap gap-2">
               <button
                 type="button"
@@ -57,6 +48,7 @@ export function ApprovalsPage() {
               </button>
               <button
                 type="button"
+                onClick={() => setEditing(d)}
                 className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-[13px] font-semibold text-ink hover:border-accent/30"
               >
                 <PenLine className="h-4 w-4" strokeWidth={1.75} />
@@ -69,6 +61,15 @@ export function ApprovalsPage() {
           </div>
         ))}
       </div>
+
+      <ApprovalDraftAiModal
+        draft={editing}
+        open={editing !== null}
+        onClose={() => setEditing(null)}
+        onApply={(body) => {
+          if (editing) applyBody(editing.id, body);
+        }}
+      />
     </div>
   );
 }
