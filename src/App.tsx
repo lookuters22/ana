@@ -9,12 +9,14 @@ import { CalendarPage } from "./pages/CalendarPage";
 import { ContactsPage } from "./pages/ContactsPage";
 import { TasksPage } from "./pages/TasksPage";
 import { SettingsPage } from "./pages/SettingsPage";
+import { WeddingsPage } from "./pages/WeddingsPage";
 
 export default function App() {
   return (
     <Routes>
       <Route element={<DashboardLayout />}>
         <Route index element={<TodayPage />} />
+        <Route path="weddings" element={<WeddingsPage />} />
         <Route path="inbox" element={<InboxPage />} />
         <Route path="wedding/:weddingId" element={<WeddingDetailPage />} />
         <Route path="approvals" element={<ApprovalsPage />} />

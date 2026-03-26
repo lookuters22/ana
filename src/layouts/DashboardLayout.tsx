@@ -7,6 +7,7 @@ import {
   ChevronDown,
   CircleUser,
   Columns3,
+  GalleryHorizontal,
   HelpCircle,
   Inbox,
   LayoutGrid,
@@ -19,6 +20,7 @@ import {
 
 const nav = [
   { to: "/", label: "Today", icon: LayoutGrid, end: true },
+  { to: "/weddings", label: "Weddings", icon: GalleryHorizontal },
   { to: "/inbox", label: "Inbox", icon: Inbox, badge: 3 },
   { to: "/approvals", label: "Approvals", icon: CheckSquare, badge: 2 },
   { to: "/pipeline", label: "Pipeline", icon: Columns3 },

@@ -1,55 +1,17 @@
 import { Link, useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { Calendar, MapPin, Paperclip, Shield, Users, X, Sparkles, Paperclip as ClipIcon } from "lucide-react";
+import { Calendar, MapPin, Paperclip, Shield, Users, X, Sparkles } from "lucide-react";
+import { WEDDING_CATALOG } from "../data/weddingCatalog";
 
 type TabId = "timeline" | "thread" | "tasks" | "files";
-
-const catalog: Record<
-  string,
-  { couple: string; when: string; where: string; stage: string; package: string; value: string; balance: string; story: string }
-> = {
-  "lake-como": {
-    couple: "Sofia & Marco",
-    when: "Saturday, 14 June 2026 · Europe/Rome",
-    where: "Villa Cetinale · Tuscany",
-    stage: "Booked",
-    package: "Weekend editorial + rehearsal",
-    value: "€18,500",
-    balance: "€4,200 due · Net-15 after wedding",
-    story:
-      "Planner-led destination wedding. Photography covers rehearsal dinner, full wedding day, and Sunday brunch. Timeline v3 received; vendor meals confirmed. Awaiting final floor plan PDF.",
-  },
-  santorini: {
-    couple: "Amelia & James",
-    when: "Saturday, 5 July 2026 · Europe/Athens",
-    where: "Santorini · Grace Hotel",
-    stage: "Contract out",
-    package: "Two-day island coverage",
-    value: "£14,200",
-    balance: "Awaiting signed agreement",
-    story:
-      "Intimate cliffside ceremony. Couple prefers warm, editorial black-and-white for ceremony; color for reception. Travel blocks held 3–7 July.",
-  },
-  london: {
-    couple: "Priya & Daniel",
-    when: "Saturday, 20 September 2026 · Europe/London",
-    where: "Claridge's · Mayfair",
-    stage: "Inquiry",
-    package: "City editorial + tented reception",
-    value: "£9,800",
-    balance: "Proposal pending",
-    story:
-      "High-touch urban wedding with multi-faith elements. Initial consult completed; mood board approved. Open question on second shooter for ceremony only.",
-  },
-};
 
 const DRAFT_DEFAULT =
   "Confirmed—we will cover the rehearsal toast with one lead and one associate, ambient-only, per the package.";
 
 export function WeddingDetailPage() {
   const { weddingId } = useParams();
-  const key = weddingId && catalog[weddingId] ? weddingId : "lake-como";
-  const w = catalog[key];
+  const key = weddingId && WEDDING_CATALOG[weddingId] ? weddingId : "lake-como";
+  const w = WEDDING_CATALOG[key];
 
   const [tab, setTab] = useState<TabId>("timeline");
   const [composerOpen, setComposerOpen] = useState(false);
@@ -377,7 +339,7 @@ export function WeddingDetailPage() {
                     Request AI draft
                   </button>
                   <button type="button" className="inline-flex items-center gap-2 rounded-full border border-border bg-canvas px-4 py-2 text-[13px] font-semibold text-ink hover:border-accent/40" onClick={() => showToast("Attachment picker (demo).")}>
-                    <ClipIcon className="h-4 w-4" strokeWidth={1.75} />
+                    <Paperclip className="h-4 w-4" strokeWidth={1.75} />
                     Attach file
                   </button>
                 </div>
