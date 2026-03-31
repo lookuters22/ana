@@ -18,7 +18,7 @@ function SocialIcon({ d, label }: { d: string; label: string }) {
     <a
       href="#"
       aria-label={label}
-      className="transition-colors hover:text-slate-600"
+      className="transition-colors hover:text-[#47201c]/70"
     >
       <svg
         width="20"
@@ -41,12 +41,12 @@ export function Footer() {
         {/* Top Row */}
         <div className="grid grid-cols-1 items-start gap-8 md:grid-cols-4">
           <div className="col-span-1">
-            <div className="inline-block rounded-full border border-white/20 px-4 py-1.5 text-2xl font-medium tracking-tight">
+            <div className="text-heading-4 font-weak inline-block rounded-full border border-white/20 px-4 py-1.5">
               atelier
             </div>
           </div>
           <div className="col-span-1 md:col-span-3">
-            <h2 className="max-w-lg text-3xl font-light leading-tight tracking-tight text-white md:text-4xl">
+            <h2 className="text-heading-2 font-weak max-w-lg text-white">
               Atelier makes your studio autonomous.
             </h2>
           </div>
@@ -56,10 +56,10 @@ export function Footer() {
         <div className="mt-16 grid grid-cols-2 gap-12 md:mt-20 md:grid-cols-4 md:gap-8">
           {COLUMNS.map((col) => (
             <div key={col.title}>
-              <h3 className="mb-6 text-sm font-medium text-white">
+              <h3 className="text-body-tiny mb-6 text-white">
                 {col.title}
               </h3>
-              <ul className="flex flex-col gap-4 text-sm text-white/60">
+              <ul className="flex flex-col gap-4 text-body-tiny text-white/60">
                 {col.links.map((link) => (
                   <li key={link}>
                     <a
@@ -76,8 +76,8 @@ export function Footer() {
 
           {/* Contact Column */}
           <div>
-            <h3 className="mb-6 text-sm font-medium text-white">Contact</h3>
-            <p className="text-sm leading-relaxed text-white/60">
+            <h3 className="text-body-tiny mb-6 text-white">Contact</h3>
+            <p className="text-body-tiny text-white/60">
               hello@atelier-os.com
               <br />
               123 Creative Ave
@@ -91,10 +91,10 @@ export function Footer() {
       </div>
 
       {/* Bottom Strip */}
-      <div className="mt-8 flex flex-col items-center justify-between gap-6 px-4 text-sm text-slate-500 md:flex-row md:gap-0 md:px-8">
+      <div className="mt-8 flex flex-col items-center justify-between gap-6 px-4 text-body-tiny text-[#47201c]/70 md:flex-row md:gap-0 md:px-8">
         <p>&copy; 2026 Atelier OS. All Rights Reserved.</p>
 
-        <div className="flex items-center gap-6 text-slate-900">
+        <div className="flex items-center gap-6 text-[#47201c]">
           {/* TikTok */}
           <SocialIcon
             label="TikTok"

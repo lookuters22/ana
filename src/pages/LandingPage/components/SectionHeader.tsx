@@ -40,7 +40,7 @@ export function SectionHeader({ title, className }: SectionHeaderProps) {
           opacity: { duration: 1.2, ease: [0.75, 0, 0.25, 1] },
           filter: { duration: 1.2, ease: [0.75, 0, 0.25, 1], delay: 0.2 },
         }}
-        className="mx-auto max-w-3xl text-center text-3xl font-light leading-tight tracking-normal text-slate-900 md:text-4xl lg:text-[44px]"
+        className="text-heading-2 font-weak mx-auto max-w-3xl text-center text-[#47201c]"
       >
         {title}
       </motion.h2>

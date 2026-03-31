@@ -63,16 +63,16 @@ export function ParallaxPlanes({ scrollYProgress }: Props) {
    *   layerForeground.y     : [scroll 0     → -0.2521, scroll 1 → -0.0245]
    */
   const yLayerSky = useMotionRef(
-    useTransform(scrollYProgress, [0, 0.217, 1], [0.2, 0.2547622237385945, 0.48]),
+    useTransform(scrollYProgress, [0, 0.217, 0.667, 1], [0.2, 0.2547622237385945, 0.384, 0.384]),
   );
   const yLayerIsland = useMotionRef(
-    useTransform(scrollYProgress, [0, 1], [-0.255793859685126, 0.3079630832162021]),
+    useTransform(scrollYProgress, [0, 0.667, 1], [-0.255793859685126, 0.12, 0.12]),
   );
   const yLayerTrees = useMotionRef(
-    useTransform(scrollYProgress, [0, 1], [-0.21072316362728313, 0.3206733786296287]),
+    useTransform(scrollYProgress, [0, 0.667, 1], [-0.21072316362728313, 0.144, 0.144]),
   );
   const yLayerFg = useMotionRef(
-    useTransform(scrollYProgress, [0, 1], [-0.2521048169111726, -0.0245083742333775]),
+    useTransform(scrollYProgress, [0, 0.667, 1], [-0.2521048169111726, -0.10, -0.10]),
   );
 
   const skyRef = useRef<THREE.Mesh>(null);

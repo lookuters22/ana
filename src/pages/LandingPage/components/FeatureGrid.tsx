@@ -70,10 +70,10 @@ function ImmersiveCard({ imageSrc, videoSrc, title, body, index = 0 }: CardProps
       <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-80" />
 
       <div className="absolute bottom-0 left-0 flex w-full flex-col justify-end p-8 md:p-12">
-        <h3 className="mb-3 text-2xl font-medium tracking-tight text-white md:text-3xl">
+        <h3 className="text-heading-3 font-weak mb-3 text-white">
           {title}
         </h3>
-        <p className="max-w-md text-base font-light leading-relaxed text-white/70 md:text-lg">
+        <p className="text-body-small font-weak max-w-md text-white/70">
           {body}
         </p>
       </div>

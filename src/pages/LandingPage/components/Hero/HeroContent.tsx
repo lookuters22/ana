@@ -17,8 +17,8 @@ export function HeroContent({ scrollYProgress }: HeroContentProps) {
     return () => controls.stop();
   }, [mountProgress]);
 
-  const scrollOpacity = useTransform(scrollYProgress, [0, 0.135], [1, 0]);
-  const scrollBlur = useTransform(scrollYProgress, [0, 0.135], [0, 6]);
+  const scrollOpacity = useTransform(scrollYProgress, [0, 0.09, 0.667], [1, 0, 0]);
+  const scrollBlur = useTransform(scrollYProgress, [0, 0.09, 0.667], [0, 6, 6]);
   const mountBlur = useTransform(mountProgress, (p) => (1 - p) * 6);
 
   const opacity = useTransform(
@@ -36,24 +36,26 @@ export function HeroContent({ scrollYProgress }: HeroContentProps) {
   return (
     <motion.div
       style={{ opacity, filter }}
-      className="absolute inset-0 z-10 flex flex-col items-center justify-center px-6 text-center"
+      className="absolute inset-0 z-30 flex flex-col items-center justify-center px-6 text-center"
     >
-      <h1 className="max-w-4xl font-sans text-4xl font-bold tracking-tight text-white sm:text-5xl md:text-6xl">
-        The Autonomous Studio Manager for Luxury Wedding Photographers.
+      <h1 className="text-display font-weak max-w-4xl text-white">
+        Meet ANA.
       </h1>
-      <p className="mt-6 max-w-2xl text-lg leading-relaxed text-slate-400 sm:text-xl">
-        Let AI handle the inquiries, quotes, and timelines while you focus on
-        the art.
+      <p className="text-heading-2 font-weak mt-2 text-white/80">
+        Your Autonomous Studio Manager.
       </p>
-      <motion.button
-        type="button"
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.98 }}
-        transition={{ ease: [0.75, 0, 0.25, 1], duration: 0.35 }}
-        className="mt-10 rounded-full border border-white/10 bg-white/5 px-8 py-3 text-sm font-semibold text-white backdrop-blur-md transition-colors hover:bg-white/10 hover:shadow-lg hover:shadow-black/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/40"
-      >
-        Request Early Access
-      </motion.button>
+      <p className="text-body-small font-weak mt-6 max-w-2xl text-white/70">
+        She handles your inbox, chases your leads, collects your payments, and
+        delivers your galleries — so you can focus on what you love.
+      </p>
+      <div className="glass-shell interactive-glass mt-10 h-[52px] cursor-pointer rounded-[999px] shadow-[0_6px_12px_rgba(0,0,0,0.1)]">
+        <button
+          type="button"
+          className="glass-inner justify-center px-10 text-body-small text-white whitespace-nowrap"
+        >
+          Get Early Access &rarr;
+        </button>
+      </div>
     </motion.div>
   );
 }

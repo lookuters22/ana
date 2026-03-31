@@ -51,24 +51,21 @@ export function FeatureCarousel() {
               exit={{ opacity: 0, y: -10 }}
               transition={TEXT_TRANSITION}
             >
-              <div className="mb-6 flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-slate-500">
-                <span className="block h-1.5 w-1.5 bg-slate-900" />
+              <div className="text-mono-tiny mb-6 flex items-center gap-2 text-[#47201c]/70">
+                <span className="block h-1.5 w-1.5 bg-[#47201c]" />
                 {active.eyebrow}
               </div>
 
-              <h3 className="mb-6 text-4xl font-light leading-[1.1] tracking-tight text-slate-900 lg:text-[44px]">
+              <h3 className="text-heading-2 font-weak mb-6 text-[#47201c]">
                 {active.title}
               </h3>
 
-              <p className="mb-10 max-w-md text-lg font-light leading-relaxed text-slate-500">
+              <p className="text-body-small font-weak mb-10 max-w-md text-[#47201c]/70">
                 {active.body}
               </p>
 
-              <a
-                href={`#${active.id}`}
-                className="w-fit rounded-full border border-slate-200 bg-white px-8 py-3 text-sm font-medium text-slate-900 shadow-sm transition-all hover:shadow-md"
-              >
-                {active.cta}
+              <a href={`#${active.id}`} className="cleo-cta">
+                <span className="cleo-cta__inner">{active.cta}</span>
               </a>
             </motion.div>
           </AnimatePresence>
@@ -96,7 +93,7 @@ export function FeatureCarousel() {
                 key={f.id}
                 type="button"
                 onClick={() => setActiveIndex(i)}
-                className={`rounded-full px-5 py-2 text-sm font-medium transition-colors duration-300 ${
+                className={`rounded-full px-5 py-2 text-body-tiny transition-colors duration-300 ${
                   activeIndex === i
                     ? "bg-black/60 text-white shadow-lg"
                     : "text-white/70 hover:bg-black/40 hover:text-white"

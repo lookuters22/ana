@@ -128,10 +128,10 @@ function CarouselTrack({
               transition={{ duration: 0.3 }}
               className="absolute bottom-0 left-0 p-8"
             >
-              <h3 className="mb-2 text-2xl font-medium text-white">
+              <h3 className="text-heading-4 font-weak mb-2 text-white">
                 {item.title}
               </h3>
-              <p className="text-sm font-light leading-relaxed text-white/80">
+              <p className="text-body-tiny font-weak text-white/80">
                 {item.body}
               </p>
             </motion.div>
@@ -167,9 +167,9 @@ export function Features3DCarousel() {
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, amount: 0.3 }}
         transition={{ duration: 0.8, ease: "easeOut" }}
-        className="relative z-20 mb-8 flex items-center gap-2 self-start font-mono text-xs uppercase tracking-widest text-slate-900 md:ml-[10%]"
+        className="text-mono-tiny relative z-20 mb-8 flex items-center gap-2 self-start text-[#47201c] md:ml-[10%]"
       >
-        <span className="block h-1.5 w-1.5 bg-slate-900" />
+        <span className="block h-1.5 w-1.5 bg-[#47201c]" />
         Atelier Features
       </motion.div>
 

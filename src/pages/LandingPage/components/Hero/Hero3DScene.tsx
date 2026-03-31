@@ -10,7 +10,11 @@ import { ParallaxPlanes } from "./ParallaxPlanes";
 const VIDEO_URL = "/high2.mp4";
 const HERO_CAMERA_FOV = 15;
 const PHONE_BASE_SCALE = 1.32;
-const VIDEO_START_PROGRESS = 0.5;
+const VIDEO_START_PROGRESS = 0.30;
+
+// ── PHONE HORIZONTAL OFFSET ──────────────────────────────────
+// Set PHONE_END_X to 0 to revert to centered (original).
+const PHONE_END_X = 0.06;
 
 type Props = { scrollYProgress: MotionValue<number> };
 
@@ -38,20 +42,23 @@ function useVideoTex(src: string) {
 
 function PhoneModel({ scrollYProgress }: Props) {
   /* Exact Theatre.js keyframes → useTransform (from theatre-phone-state.json) */
+  const posX = useMotionRef(
+    useTransform(scrollYProgress, [0, 0.20, 0.30, 0.667], [0, 0, PHONE_END_X, PHONE_END_X]),
+  );
   const posY = useMotionRef(
-    useTransform(scrollYProgress, [0, 0.366, 1], [0.035, 0, 0]),
+    useTransform(scrollYProgress, [0, 0.244, 0.667], [0.035, 0, 0]),
   );
   const posZ = useMotionRef(
-    useTransform(scrollYProgress, [0, 1], [0.819, -0.433]),
+    useTransform(scrollYProgress, [0, 0.667, 1], [0.819, -0.433, -0.433]),
   );
   const rotX = useMotionRef(
-    useTransform(scrollYProgress, [0, 0.583, 1], [-0.358, 0, -0.083]),
+    useTransform(scrollYProgress, [0, 0.389, 0.667, 1], [-0.358, 0, -0.083, -0.083]),
   );
   const rotY = useMotionRef(
-    useTransform(scrollYProgress, [0, 0.573], [-0.216, 0.408]),
+    useTransform(scrollYProgress, [0, 0.382, 0.667], [-0.216, 0.408, 0.408]),
   );
   const vidOpacity = useMotionRef(
-    useTransform(scrollYProgress, [0.135, 0.222], [0, 1]),
+    useTransform(scrollYProgress, [0.09, 0.148, 0.667], [0, 1, 1]),
   );
 
   const objectRef = useRef<THREE.Object3D>(null);
@@ -137,7 +144,7 @@ function PhoneModel({ scrollYProgress }: Props) {
     const obj = objectRef.current;
     if (!obj) return;
 
-    obj.position.set(0, posY.current, posZ.current);
+    obj.position.set(posX.current, posY.current, posZ.current);
     obj.rotation.set(rotX.current, rotY.current, 0);
     obj.scale.setScalar(PHONE_BASE_SCALE);
 
@@ -168,7 +175,7 @@ export function Hero3DScene({ scrollYProgress, onLoaded }: SceneProps) {
         left: 0,
         width: "100vw",
         height: "100vh",
-        zIndex: 1,
+        zIndex: 20,
         pointerEvents: "none",
       }}
     >

@@ -35,8 +35,8 @@ export function FAQSection() {
 
   return (
     <section className="w-full bg-[#F5F5F0] px-4 py-24 md:px-6">
-      <div className="mx-auto flex max-w-[1000px] flex-col items-center rounded-[3rem] rounded-br-md bg-gradient-to-b from-slate-900/[0.03] to-slate-900/[0.01] px-4 py-16 md:py-24">
-        <h2 className="mb-12 text-4xl font-light tracking-tight text-slate-900 md:text-5xl">
+        <div className="mx-auto flex max-w-[1000px] flex-col items-center rounded-[3rem] rounded-br-md bg-gradient-to-b from-[#47201c]/[0.03] to-[#47201c]/[0.01] px-4 py-16 md:py-24">
+        <h2 className="text-heading-2 font-weak mb-12 text-[#47201c]">
           FAQs
         </h2>
 
@@ -57,15 +57,15 @@ export function FAQSection() {
                     borderTopRightRadius: "32px",
                   }}
                   transition={{ duration: 0.4, ease: EASE }}
-                  className="relative z-10 flex w-full items-center justify-between border border-slate-900/5 bg-white p-5 text-left shadow-[0_6px_12px_rgba(0,0,0,0.04)] outline-none hover:bg-white/90 md:px-8 md:py-6"
+                  className="relative z-10 flex w-full items-center justify-between border border-[#47201c]/5 bg-white p-5 text-left shadow-[0_6px_12px_rgba(0,0,0,0.04)] outline-none hover:bg-white/90 md:px-8 md:py-6"
                 >
-                  <span className="pr-4 font-medium text-slate-900">
+                  <span className="text-body-small pr-4 text-[#47201c]">
                     {faq.question}
                   </span>
                   <motion.div
                     animate={{ rotate: isOpen ? 45 : 0 }}
                     transition={{ duration: 0.4, ease: EASE }}
-                    className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-slate-900/5 bg-white text-slate-400 shadow-sm"
+                    className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#47201c]/5 bg-white text-[#47201c]/70 shadow-sm"
                   >
                     <svg
                       width="14"
@@ -92,7 +92,7 @@ export function FAQSection() {
                       transition={{ duration: 0.4, ease: EASE }}
                       className="overflow-hidden"
                     >
-                      <div className="rounded-b-[32px] border-x border-b border-slate-900/5 bg-slate-900/5 p-6 text-sm font-light leading-relaxed text-slate-600 md:px-8 md:py-7 md:text-base">
+                      <div className="text-body-small font-weak rounded-b-[32px] border-x border-b border-[#47201c]/5 bg-[#47201c]/5 p-6 text-[#47201c]/70 md:px-8 md:py-7">
                         {faq.answer}
                       </div>
                     </motion.div>

@@ -1,7 +1,41 @@
+/* --- CUSTOM FONT FACES --- */
+@font-face {
+  font-family: 'PPNeueMontreal';
+  src: url('/fonts/PPNeueMontreal-Book.woff') format('woff');
+  font-weight: 450;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'PPNeueMontreal';
+  src: url('/fonts/PPNeueMontreal-Light.woff') format('woff');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'PPNeueMontreal';
+  src: url('/fonts/PPNeueMontreal-Bold.woff') format('woff');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'SimplonMono';
+  src: url('/fonts/SimplonMono-Regular.woff2') format('woff2');
+  font-weight: 450;
+  font-style: normal;
+  font-display: swap;
+}
+
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "PPNeueMontreal", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "SimplonMono", ui-monospace, SFMono-Regular, monospace;
   --color-canvas: #f5f5f0;
   --color-ink: #1a1c1e;
   --color-ink-muted: #5c6368;
@@ -24,7 +58,69 @@
   }
   body {
     @apply bg-canvas text-ink m-0 min-h-screen;
+    font-family: 'PPNeueMontreal', sans-serif;
+    font-weight: 450;
+    -webkit-user-select: none;
+    user-select: none;
   }
+}
+
+/* =========================================
+   CORE TYPOGRAPHY SYSTEM
+   ========================================= */
+@layer utilities {
+  .text-display {
+    font-size: 56px; line-height: 1.07143; font-weight: 450;
+  }
+  @media (min-width: 768px) { .text-display { font-size: 64px; line-height: 1.0625; } }
+  @media (min-width: 1024px) { .text-display { font-size: 88px; line-height: 1.04545; } }
+
+  .text-heading-1 {
+    font-size: 32px; line-height: 1.125; font-weight: 450;
+  }
+  @media (min-width: 768px) { .text-heading-1 { font-size: 56px; line-height: 1.07143; } }
+  @media (min-width: 1024px) { .text-heading-1 { font-size: 64px; line-height: 1.0625; } }
+
+  .text-heading-2 {
+    font-size: 32px; line-height: 1.125; font-weight: 450;
+  }
+  @media (min-width: 768px) { .text-heading-2 { font-size: 40px; line-height: 1.1; } }
+  @media (min-width: 1024px) { .text-heading-2 { font-size: 48px; line-height: 1.08333; } }
+
+  .text-heading-3 {
+    font-size: 28px; line-height: 1.14286; font-weight: 450;
+  }
+  @media (min-width: 1024px) { .text-heading-3 { font-size: 32px; line-height: 1.125; } }
+
+  .text-heading-4 {
+    font-size: 22px; line-height: 1.18182; font-weight: 450;
+  }
+  @media (min-width: 768px) { .text-heading-4 { font-size: 24px; line-height: 1.16667; } }
+
+  .text-body-medium { font-size: 20px; line-height: 1.55; font-weight: 450; letter-spacing: 0.035em; }
+  .text-body-small { font-size: 16px; line-height: 1.6; font-weight: 450; letter-spacing: 0.035em; }
+
+  .text-body-tiny {
+    font-size: 12px; line-height: 1.5; font-weight: 450; letter-spacing: 0.03em;
+  }
+  @media (min-width: 768px) { .text-body-tiny { font-size: 14px; line-height: 1.5; } }
+
+  .text-mono-small {
+    font-family: 'SimplonMono', monospace;
+    font-size: 16px; line-height: 1.25; font-weight: 450;
+  }
+
+  .text-mono-tiny {
+    font-family: 'SimplonMono', monospace;
+    font-size: 12px; line-height: 1.33333; font-weight: 450;
+    text-transform: uppercase;
+  }
+  @media (min-width: 768px) { .text-mono-tiny { font-size: 14px; line-height: 1.14286; } }
+
+  /* --- ABSOLUTE WEIGHT OVERRIDES --- */
+  .font-weak { font-weight: 300 !important; }
+  .font-normal { font-weight: 450 !important; }
+  .font-bold { font-weight: 700 !important; }
 }
 
 /* Pending-approval draft: marching dashes (SVG stroke) */
@@ -386,5 +482,190 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+/* Premium Double-Layer Glass Components */
+.glass-shell {
+  position: relative;
+  display: grid;
+  backdrop-filter: blur(6px);
+  background: rgba(41, 18, 16, 0.10);
+  transition: background 0.2s cubic-bezier(0,0,1,1);
+}
+
+.glass-shell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(180deg, transparent 0%, rgba(248, 246, 242, 0.8) 41.5%, transparent 100%) border-box;
+  border: 1px solid transparent;
+  -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+.glass-shell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  opacity: 0;
+  box-shadow: inset 0 6px 14px -3px rgba(255, 227, 209, 0.03), 0 6px 12px rgba(0,0,0,0.18);
+  transition: opacity 0.2s cubic-bezier(0,0,1,1);
+  pointer-events: none;
+  z-index: -1;
+}
+
+.glass-inner {
+  width: calc(100% - 4px);
+  height: calc(100% - 1px);
+  place-self: end center;
+  border-radius: inherit;
+  background: rgba(41, 18, 16, 0.20);
+  border: 1px solid rgba(41, 18, 16, 0.30);
+  display: flex;
+  align-items: center;
+  transition: border-color 0.2s cubic-bezier(0,0,1,1), background 0.2s cubic-bezier(0,0,1,1);
+}
+
+/* Interactive hover for Logo and CTA */
+.interactive-glass:hover {
+  background: rgba(0, 0, 0, 0.15);
+}
+.interactive-glass:hover::after {
+  opacity: 1;
+}
+.interactive-glass:hover .glass-inner {
+  border-color: transparent;
+}
+
+/* Light-tone CTA (for light backgrounds) */
+.cleo-cta {
+  position: relative;
+  display: grid;
+  width: fit-content;
+  height: 56px;
+  border-radius: 999px;
+  padding: 0;
+  background: rgba(134, 134, 134, 0.10);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.10);
+  backdrop-filter: blur(1.5px);
+  color: #47201c;
+  font-size: 16px;
+  font-weight: 450;
+  line-height: 1.25;
+  transition: background .2s cubic-bezier(0,0,1,1);
+  cursor: pointer;
+}
+
+.cleo-cta::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(180deg, #f8f6f2 0%, #868686 41.5%, #f8f6f2 100%) border-box;
+  border: 1px solid transparent;
+  -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+.cleo-cta__inner {
+  width: calc(100% - 4px);
+  height: calc(100% - .5px);
+  place-self: end center;
+  border-radius: inherit;
+  background: rgba(255, 255, 255, 0.20);
+  border: 1px solid rgba(255, 255, 255, 0.30);
+  border-bottom: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 48px;
+  white-space: nowrap;
+  transition: background .2s cubic-bezier(0,0,1,1), border-color .2s cubic-bezier(0,0,1,1);
+}
+
+.cleo-cta:hover {
+  background: rgba(248, 246, 242, 0.25);
+}
+.cleo-cta:hover .cleo-cta__inner {
+  border-color: transparent;
+}
+
+.cleo-cta:active {
+  background: transparent;
+}
+.cleo-cta:active .cleo-cta__inner {
+  background: rgba(71, 32, 28, 0.40);
+}
+
+/* Center Nav Pills (Cinematic Shine & Blur) */
+.nav-pill {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 38px;
+  padding: 0 38px;
+  border-radius: 999px;
+  color: #fff;
+  background: transparent;
+  border: none;
+  font-size: 16px;
+  font-weight: 450;
+  line-height: 1.25;
+  z-index: 1;
+  transition: background 0.2s cubic-bezier(0,0,1,1);
+  cursor: pointer;
+}
+
+.nav-pill::before {
+  content: "";
+  position: absolute;
+  inset: 0 10px;
+  border-radius: inherit;
+  opacity: 0;
+  background: rgba(0, 0, 0, 0.15);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  z-index: -1;
+  transition: opacity 0.2s cubic-bezier(0,0,1,1);
+}
+
+.nav-pill::after {
+  content: "";
+  position: absolute;
+  inset: 0 10px;
+  border-radius: inherit;
+  opacity: 0;
+  background: linear-gradient(
+    35deg,
+    transparent 0% 25%,
+    rgba(255, 255, 255, 0.6) 50%,
+    transparent 75% 100%
+  ) border-box;
+  border: 0.5px solid transparent;
+  -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  z-index: -1;
+  transition: opacity 0.2s cubic-bezier(0,0,1,1);
+}
+
+.nav-pill:hover::before,
+.nav-pill:hover::after {
+  opacity: 1;
+}
+
+.nav-pill.is-active::before {
+  background: rgba(0, 0, 0, 0.40);
+  opacity: 1;
+}
+.nav-pill.is-active::after {
+  opacity: 1;
 }
 

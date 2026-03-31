@@ -1,3 +1,4 @@
+import { Header } from "./components/Header";
 import { HeroWrapper } from "./components/Hero/HeroWrapper";
 import { ValueProposition } from "./components/ValueProposition";
 import { FeatureGrid } from "./components/FeatureGrid";
@@ -7,10 +8,13 @@ import { FeatureCarousel } from "./components/FeatureCarousel";
 import { Features3DCarousel } from "./components/Features3DCarousel";
 import { FAQSection } from "./components/FAQSection";
 import { Footer } from "./components/Footer";
+import SmoothScrolling from "../../components/SmoothScrolling";
 
 export function LandingPage() {
   return (
+    <SmoothScrolling>
     <div className="min-h-screen bg-slate-950 text-white">
+      <Header />
       <HeroWrapper />
       <ValueProposition />
       <FeatureGrid />
@@ -38,5 +42,6 @@ export function LandingPage() {
       <FAQSection />
       <Footer />
     </div>
+    </SmoothScrolling>
   );
 }

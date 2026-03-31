@@ -24,26 +24,20 @@ export function ValueProposition() {
         viewport={{ once: true, margin: "-100px" }}
         className="relative mx-auto flex max-w-4xl flex-col items-center"
       >
-        <h2 className="text-center text-4xl font-medium tracking-tight text-slate-900 md:text-5xl lg:text-[56px]">
+        <h2 className="text-heading-2 font-weak text-center text-[#47201c]">
           Art takes time.
           <br />
           Admin shouldn&rsquo;t.
         </h2>
 
-        <p className="mx-auto mt-6 max-w-2xl text-center text-lg font-light text-slate-500 md:text-xl">
+        <p className="text-body-small font-weak mx-auto mt-4 max-w-xl text-center text-[#47201c]/70">
           An autonomous AI agent that handles inquiries, builds quotes, and
           chases invoices&mdash;so you can stay behind the lens.
         </p>
 
-        <motion.a
-          href="#early-access"
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.97 }}
-          transition={{ ease: EDITORIAL_EASE, duration: 0.35 }}
-          className="mt-10 rounded-full border border-slate-900/15 bg-slate-900/5 px-6 py-3 text-sm font-medium text-slate-900 backdrop-blur-md transition-all hover:scale-105 hover:bg-slate-900/10"
-        >
-          Meet Your New Manager
-        </motion.a>
+        <a href="#early-access" className="cleo-cta mt-10">
+          <span className="cleo-cta__inner text-body-small text-[#47201c]">Meet Your New Manager</span>
+        </a>
       </motion.div>
     </section>
   );
