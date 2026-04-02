@@ -13,10 +13,22 @@ import SmoothScrolling from "../../components/SmoothScrolling";
 
 export function LandingPage() {
   useEffect(() => {
+    const root = document.documentElement;
+    const prevBg = root.style.background;
+    const wasLight = root.classList.contains("light");
+    root.style.background = "#020617";
+    root.classList.remove("light");
+    root.style.colorScheme = "dark";
+
     for (const src of FEATURE_GRID_IMAGE_SRCS) {
       const img = new Image();
       img.src = src;
     }
+
+    return () => {
+      root.style.background = prevBg;
+      if (wasLight) root.classList.add("light");
+    };
   }, []);
 
   return (
