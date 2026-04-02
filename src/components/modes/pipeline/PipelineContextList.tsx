@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { ChevronDown, Plus } from "lucide-react";
+import { ChevronDown, ExternalLink, Plus, Trash2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,13 @@ import {
   CollapsibleTrigger,
   AnimatedCollapsibleContent,
 } from "@/components/ui/collapsible";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 import { useAuth } from "@/context/AuthContext";
 import { useWeddings } from "@/hooks/useWeddings";
 import { usePipelineMode } from "./PipelineModeContext";
@@ -59,9 +66,15 @@ function bucketForStage(stage: string): Bucket {
 
 export function PipelineContextList() {
   const { photographerId } = useAuth();
-  const { data: weddings, isLoading, error } = useWeddings(photographerId ?? "");
+  const { data: weddings, isLoading, error, deleteWedding } = useWeddings(photographerId ?? "");
   const { weddingId, selectWedding } = usePipelineMode();
   const [query, setQuery] = useState("");
+
+  async function handleDelete(id: string, name: string) {
+    if (!window.confirm(`Delete "${name}"? This cannot be undone.`)) return;
+    await deleteWedding(id);
+    if (weddingId === id) selectWedding(null as unknown as string);
+  }
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -145,33 +158,50 @@ export function PipelineContextList() {
                       buckets[id].map((w) => {
                         const selected = weddingId === w.id;
                         return (
-                          <button
-                            key={w.id}
-                            type="button"
-                            onClick={() => selectWedding(w.id)}
-                            className={cn(
-                              "flex w-full flex-col gap-1 rounded-md border border-transparent px-2 py-2 text-left transition-colors",
-                              "hover:border-border hover:bg-background/80",
-                              selected && "border-border bg-accent"
-                            )}
-                          >
-                            <span className="font-medium leading-tight text-foreground">
-                              {w.couple_names}
-                            </span>
-                            <div className="flex flex-wrap items-center gap-1.5">
-                              <span
+                          <ContextMenu key={w.id}>
+                            <ContextMenuTrigger asChild>
+                              <button
+                                type="button"
+                                onClick={() => selectWedding(w.id)}
                                 className={cn(
-                                  "inline-flex max-w-full truncate rounded-full border px-1.5 py-0.5 text-[11px] font-medium capitalize",
-                                  stageBadgeClass(w.stage)
+                                  "flex w-full flex-col gap-1 rounded-md border border-transparent px-2 py-2 text-left transition-colors",
+                                  "hover:border-border hover:bg-background/80",
+                                  selected && "border-border bg-accent"
                                 )}
                               >
-                                {formatStageLabel(w.stage)}
-                              </span>
-                              <span className="text-[12px] text-muted-foreground">
-                                {formatShortDate(w.wedding_date)}
-                              </span>
-                            </div>
-                          </button>
+                                <span className="font-medium leading-tight text-foreground">
+                                  {w.couple_names}
+                                </span>
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  <span
+                                    className={cn(
+                                      "inline-flex max-w-full truncate rounded-full border px-1.5 py-0.5 text-[11px] font-medium capitalize",
+                                      stageBadgeClass(w.stage)
+                                    )}
+                                  >
+                                    {formatStageLabel(w.stage)}
+                                  </span>
+                                  <span className="text-[12px] text-muted-foreground">
+                                    {formatShortDate(w.wedding_date)}
+                                  </span>
+                                </div>
+                              </button>
+                            </ContextMenuTrigger>
+                            <ContextMenuContent>
+                              <ContextMenuItem onClick={() => selectWedding(w.id)}>
+                                <ExternalLink className="mr-2 h-3.5 w-3.5" />
+                                Open project
+                              </ContextMenuItem>
+                              <ContextMenuSeparator />
+                              <ContextMenuItem
+                                className="text-destructive focus:text-destructive"
+                                onClick={() => handleDelete(w.id, w.couple_names)}
+                              >
+                                <Trash2 className="mr-2 h-3.5 w-3.5" />
+                                Delete project
+                              </ContextMenuItem>
+                            </ContextMenuContent>
+                          </ContextMenu>
                         );
                       })
                     )}
