@@ -294,6 +294,10 @@ export function FourPaneLayout() {
   const [holdShellBg, setHoldShellBg] = useState(false);
   const prevModeRef = useRef<Mode | null>(null);
 
+  /** True when this navigation involves Today (either end) — use cinematic transition. */
+  const transitionInvolvesToday =
+    mode === "today" || prevModeRef.current === "today";
+
   useEffect(() => {
     const prev = prevModeRef.current;
     if (mode !== "today") {
@@ -324,7 +328,11 @@ export function FourPaneLayout() {
 
       <div className={`relative z-10 min-w-0 flex-1 h-full ${showShellBg ? "bg-background" : ""}`}>
         <AnimatePresence mode="wait" onExitComplete={handlePresenceExitComplete}>
-          <PageTransition key={mode} longTodayEntrance={mode === "today"}>
+          <PageTransition
+            key={mode}
+            variant={transitionInvolvesToday ? "cinematic" : "quick"}
+            longTodayEntrance={mode === "today"}
+          >
             <ModeSwitch mode={mode} />
           </PageTransition>
         </AnimatePresence>

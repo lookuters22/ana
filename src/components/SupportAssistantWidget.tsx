@@ -2,9 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { MessageCircle, Send, X } from "lucide-react";
 import { motion, AnimatePresence, useMotionValue } from "framer-motion";
 import { supabase } from "../lib/supabase";
-
-const ANA_AVATAR_SRC =
-  "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=128&h=128&fit=crop&auto=format&q=80";
+import { OBSIDIAN_GLASS } from "@/lib/obsidianGlass";
 
 type ChatRole = "user" | "assistant";
 type ChatLine = { id: string; role: ChatRole; text: string };
@@ -13,7 +11,9 @@ function nextId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-const panelShadow = "0 8px 30px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.06)";
+/** Same obsidian glass as ZenLobby KPI cards + priority feed */
+const OBSIDIAN_PANEL = `rounded-xl border-0 ${OBSIDIAN_GLASS} text-white/90`;
+const OBSIDIAN_TRIGGER = `min-h-[44px] min-w-[100px] rounded-[999px] border-0 ${OBSIDIAN_GLASS} text-white`;
 
 
 const ANA_QUERY_EVENT = "ana-widget:open-with-query";
@@ -143,8 +143,7 @@ export function SupportAssistantWidget() {
           {open && (
             <motion.div
               id="support-assistant-panel"
-              className={`pointer-events-auto flex max-h-[min(70vh,380px)] flex-col rounded-xl border border-slate-200 bg-white px-3 py-3 text-slate-800 ${panelPositionClass}`}
-              style={{ boxShadow: panelShadow }}
+              className={`pointer-events-auto flex max-h-[min(70vh,380px)] flex-col px-3 py-3 ${OBSIDIAN_PANEL} ${panelPositionClass}`}
               role="dialog"
               aria-label="Ana support chat"
               initial={{ opacity: 0, scale: 0.92 }}
@@ -162,8 +161,8 @@ export function SupportAssistantWidget() {
               >
                 {messages.length === 0 && !anaTyping && (
                   <div className="flex h-full flex-col items-center justify-center gap-2 py-8 text-center">
-                    <MessageCircle className="h-5 w-5 text-slate-400" strokeWidth={1.5} />
-                    <p className="text-[12px] text-slate-400">Ask Ana anything</p>
+                    <MessageCircle className="h-5 w-5 text-white/35" strokeWidth={1.5} />
+                    <p className="text-[12px] text-white/40">Ask Ana anything</p>
                   </div>
                 )}
                 {messages.map((m) => (
@@ -173,19 +172,19 @@ export function SupportAssistantWidget() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.2 }}
                   >
-                    <p className="mb-1 text-[11px] font-semibold text-slate-400">
+                    <p className="mb-1 text-[11px] font-semibold text-white/45">
                       {m.role === "user" ? "You" : "Ana"}
                     </p>
-                    <p className="text-[12px] leading-[18px] text-slate-800">{m.text}</p>
+                    <p className="text-[12px] leading-[18px] text-white/90">{m.text}</p>
                   </motion.div>
                 ))}
                 {anaTyping && (
                   <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }}>
-                    <p className="mb-1 text-[11px] font-semibold text-slate-400">Ana</p>
+                    <p className="mb-1 text-[11px] font-semibold text-white/45">Ana</p>
                     <span className="inline-flex gap-1">
-                      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-slate-300" />
-                      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-slate-300" style={{ animationDelay: "0.15s" }} />
-                      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-slate-300" style={{ animationDelay: "0.3s" }} />
+                      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white/35" />
+                      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white/35" style={{ animationDelay: "0.15s" }} />
+                      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white/35" style={{ animationDelay: "0.3s" }} />
                     </span>
                   </motion.div>
                 )}
@@ -193,7 +192,7 @@ export function SupportAssistantWidget() {
 
               {/* Input area */}
               <div className="mt-3 shrink-0">
-                <div className="rounded-[10px] border border-slate-100 bg-slate-50 focus-within:border-slate-300">
+                <div className="rounded-[10px] border-0 bg-black/35 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-md focus-within:shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]">
                   <textarea
                     id="support-question"
                     value={question}
@@ -207,15 +206,15 @@ export function SupportAssistantWidget() {
                     rows={1}
                     placeholder="Ask for follow-up changes"
                     disabled={isSubmitting}
-                    className="w-full resize-none bg-transparent px-3 pt-2.5 pb-1 text-[12px] text-slate-900 placeholder:text-slate-400 focus:outline-none disabled:opacity-60"
+                    className="w-full resize-none bg-transparent px-3 pt-2.5 pb-1 text-[12px] text-white/95 placeholder:text-white/35 focus:outline-none disabled:opacity-60"
                   />
                   <div className="flex items-center justify-between px-2 pb-1.5">
-                    <span className="text-[10px] text-slate-400">Support · Ana</span>
+                    <span className="text-[10px] text-white/40">Support · Ana</span>
                     <button
                       type="button"
                       onClick={submitQuestion}
                       disabled={isSubmitting || !question.trim()}
-                      className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-200 text-slate-600 transition hover:bg-slate-300 disabled:opacity-30"
+                      className="flex h-6 w-6 items-center justify-center rounded-full bg-white/15 text-white/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.15)] transition hover:bg-white/25 disabled:opacity-30"
                     >
                       <Send className="h-3 w-3" strokeWidth={2} />
                     </button>
@@ -226,7 +225,7 @@ export function SupportAssistantWidget() {
           )}
         </AnimatePresence>
 
-        {/* Trigger — same smoked crystal as Landing Header "Early Access" */}
+        {/* Trigger — obsidian glass (KPI / priority / dock) */}
         <motion.button
           type="button"
           ref={btnRef}
@@ -241,8 +240,8 @@ export function SupportAssistantWidget() {
           whileHover={{ scale: 1.04 }}
           whileTap={{ scale: 0.97 }}
         >
-          <div className="glass-shell interactive-glass min-h-[44px] min-w-[100px] rounded-[999px] shadow-[0_6px_12px_rgba(0,0,0,0.1)]">
-            <span className="glass-inner justify-center gap-2 px-4 py-2.5 text-[12px] font-normal tracking-wide text-white">
+          <div className={`flex items-center justify-center ${OBSIDIAN_TRIGGER}`}>
+            <span className="flex items-center justify-center gap-2 px-4 py-2.5 text-[12px] font-normal tracking-wide text-white">
               <AnimatePresence mode="wait" initial={false}>
                 {open ? (
                   <motion.span

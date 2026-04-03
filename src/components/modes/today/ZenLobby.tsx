@@ -9,35 +9,39 @@ import { useTasks } from "../../../hooks/useTasks";
 import { TiltCard } from "../../ui/TiltCard";
 import { CinematicAuraText } from "../../ui/CinematicAuraText";
 import { cn } from "@/lib/utils";
+import { OBSIDIAN_GLASS } from "@/lib/obsidianGlass";
 import type { LucideIcon } from "lucide-react";
 
 const SERIF = "'Playfair Display', Georgia, serif";
 
-/** Same smoked crystal as Landing `Header` Early Access (`glass-shell` / `glass-inner` in index.css). */
+const PILL_OBSIDIAN =
+  "bg-[#0a0a0a]/50 text-white backdrop-blur-2xl shadow-[inset_0_1px_0_rgba(255,255,255,0.15)]";
+/** Light chips on obsidian panels: white fill, text matches glass body hue. */
+const PILL_LIGHT =
+  "bg-white/95 text-[#0a0a0a] shadow-[inset_0_1px_0_rgba(255,255,255,1),0_1px_3px_rgba(0,0,0,0.12)]";
+
+/** Compact pill — `tone="light"` for badges on dark glass; default obsidian. */
 function LandingGlassPill({
   children,
   className,
   innerClassName,
+  tone = "obsidian",
 }: {
   children: React.ReactNode;
   className?: string;
   innerClassName?: string;
+  tone?: "obsidian" | "light";
 }) {
   return (
     <span
       className={cn(
-        "glass-shell inline-grid w-fit max-w-full rounded-[999px] align-middle shadow-[0_4px_10px_rgba(0,0,0,0.12)]",
+        "inline-flex min-h-[22px] w-max max-w-full items-center justify-center gap-1.5 rounded-[999px] px-2.5 py-0.5 text-[10px] font-normal tracking-wide",
+        tone === "light" ? PILL_LIGHT : PILL_OBSIDIAN,
+        innerClassName,
         className,
       )}
     >
-      <span
-        className={cn(
-          "glass-inner flex !h-auto min-h-[22px] w-max max-w-full items-center justify-center gap-1.5 px-2.5 py-0.5 text-[10px] font-normal tracking-wide text-white",
-          innerClassName,
-        )}
-      >
-        {children}
-      </span>
+      {children}
     </span>
   );
 }
@@ -48,9 +52,6 @@ const PULSE_MESSAGES = [
   "5 inquiries are pending. You are doing great.",
 ];
 
-const GLASS_SHADOW = "inset 0 1px 0 rgba(255,255,255,0.1)";
-const CRYSTAL_BG = "rgba(255,255,255,0.03)";
-const CRYSTAL_BORDER = "1px solid rgba(255,255,255,0.05)";
 const IDLE_TIMEOUT_MS = 5 * 60 * 1000;
 
 const NOISE_SVG = `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`;
@@ -328,16 +329,11 @@ function KpiCard({
         <div
           className={
             "glass-grain relative overflow-hidden rounded-xl " +
+            OBSIDIAN_GLASS +
+            " " +
             (compact ? "p-5 " : "p-6 ") +
             (isActive ? "" : "opacity-40")
           }
-          style={{
-            background: CRYSTAL_BG,
-            backdropFilter: "blur(20px)",
-            WebkitBackdropFilter: "blur(20px)",
-            boxShadow: GLASS_SHADOW,
-            border: CRYSTAL_BORDER,
-          }}
         >
           <div className="relative z-10 flex items-start justify-between">
             <div className="flex items-center gap-2">
@@ -347,7 +343,7 @@ function KpiCard({
               </span>
             </div>
             {showEnrichment && (
-              <LandingGlassPill innerClassName="text-white/90">{enrichment.metaTag}</LandingGlassPill>
+              <LandingGlassPill tone="light">{enrichment.metaTag}</LandingGlassPill>
             )}
           </div>
 
@@ -472,7 +468,7 @@ function MagneticRow({ children, className }: { children: React.ReactNode; class
     <div className={"relative z-0 hover:z-10 " + (className ?? "")} onMouseMove={handleMove} onMouseLeave={handleLeave}>
       <div
         ref={overlayRef}
-        className="pointer-events-none absolute inset-0 rounded-xl opacity-0 transition-opacity duration-200"
+        className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-200"
       />
       {children}
     </div>
@@ -609,7 +605,7 @@ export function ZenLobby() {
           z-index: 2;
         }
         .glass-grain:hover::after {
-          opacity: 1;
+          opacity: 0;
         }
         @keyframes mote-drift-0 {
           0% { transform: translate(0, 0); }
@@ -695,66 +691,67 @@ export function ZenLobby() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.35, ease: "easeOut" }}
             >
-              {actionItems.length > 0 && (
-                <p className="mb-4 pl-4 text-[10px] font-semibold uppercase tracking-[0.2em] text-white/50">
-                  Priority Actions
-                </p>
-              )}
-
-              <div className="flex flex-col">
-                {actionItems.map((item, i) => {
-                  const initials = getInitials(item.detail || item.label);
-                  const age = formatRelativeTime(item.createdAt);
-                  const ink = fadingInk(item.createdAt);
-                  const isLast = i === actionItems.length - 1;
-                  return (
-                    <MagneticRow key={item.id}>
-                      <motion.button
-                        type="button"
-                        initial={{ opacity: 0, y: 8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.35, delay: 0.4 + i * 0.06, ease: "easeOut" }}
-                        onClick={() => {
-                          if (item.kind === "message" && item.threadId) {
-                            navigate(`/inbox?threadId=${item.threadId}`);
-                          } else if (item.kind === "draft" && item.threadId) {
-                            navigate(`/inbox?threadId=${item.threadId}&action=review_draft`);
-                          } else if (item.kind === "task" && item.weddingId) {
-                            navigate(`/pipeline/${item.weddingId}?openTask=${item.taskId}`);
-                          } else if (item.kind === "task") {
-                            navigate("/pipeline");
-                          }
-                        }}
-                        className={`relative flex w-full cursor-pointer items-center gap-4 rounded-lg py-3.5 pr-3 pl-4 text-left transition-colors duration-200 hover:bg-white/[0.03]${isLast ? "" : " border-b border-white/[0.05]"}`}
-                      >
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/10 text-[11px] font-semibold text-white/80 backdrop-blur-sm">
-                          {initials}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className={`truncate text-[13px] font-medium ${ink.name}`}>
-                            {item.detail || "Unknown"}
-                            <span className={`ml-2 text-[11px] font-normal ${ink.age}`}>
-                              • {age}
-                            </span>
-                          </p>
-                          <p className={`mt-0.5 truncate text-[12px] ${ink.snippet}`}>
-                            {item.label}
-                          </p>
-                        </div>
-                        <LandingGlassPill className="shrink-0" innerClassName="gap-1.5 font-normal text-white/90">
-                          <span
-                            className="h-1.5 w-1.5 shrink-0 rounded-full bg-orange-400"
-                            style={{ animation: "waiting-dot 2s ease-in-out infinite" }}
-                          />
-                          {item.status}
-                        </LandingGlassPill>
-                      </motion.button>
-                    </MagneticRow>
-                  );
-                })}
-              </div>
-
-              {actionItems.length === 0 && (
+              {actionItems.length > 0 ? (
+                <>
+                  <p className="mb-3 pl-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-white/50">
+                    Priority Actions
+                  </p>
+                  <div className={`overflow-hidden rounded-xl ${OBSIDIAN_GLASS}`}>
+                    <div className="flex flex-col">
+                      {actionItems.map((item, i) => {
+                        const initials = getInitials(item.detail || item.label);
+                        const age = formatRelativeTime(item.createdAt);
+                        const ink = fadingInk(item.createdAt);
+                        const isLast = i === actionItems.length - 1;
+                        return (
+                          <MagneticRow key={item.id}>
+                            <motion.button
+                              type="button"
+                              initial={{ opacity: 0, y: 8 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ duration: 0.35, delay: 0.4 + i * 0.06, ease: "easeOut" }}
+                              onClick={() => {
+                                if (item.kind === "message" && item.threadId) {
+                                  navigate(`/inbox?threadId=${item.threadId}`);
+                                } else if (item.kind === "draft" && item.threadId) {
+                                  navigate(`/inbox?threadId=${item.threadId}&action=review_draft`);
+                                } else if (item.kind === "task" && item.weddingId) {
+                                  navigate(`/pipeline/${item.weddingId}?openTask=${item.taskId}`);
+                                } else if (item.kind === "task") {
+                                  navigate("/pipeline");
+                                }
+                              }}
+                              className={`relative flex w-full cursor-pointer items-center gap-4 py-3.5 pr-3 pl-4 text-left transition-colors duration-200 hover:bg-white/[0.06]${isLast ? "" : " border-b border-white/10"}`}
+                            >
+                              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/95 text-[11px] font-semibold text-[#0a0a0a] shadow-[inset_0_1px_0_rgba(255,255,255,1),0_1px_3px_rgba(0,0,0,0.1)]">
+                                {initials}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className={`truncate text-[13px] font-medium ${ink.name}`}>
+                                  {item.detail || "Unknown"}
+                                  <span className={`ml-2 text-[11px] font-normal ${ink.age}`}>
+                                    • {age}
+                                  </span>
+                                </p>
+                                <p className={`mt-0.5 truncate text-[12px] ${ink.snippet}`}>
+                                  {item.label}
+                                </p>
+                              </div>
+                              <LandingGlassPill tone="light" className="shrink-0" innerClassName="gap-1.5 font-normal">
+                                <span
+                                  className="h-1.5 w-1.5 shrink-0 rounded-full bg-orange-500"
+                                  style={{ animation: "waiting-dot 2s ease-in-out infinite" }}
+                                />
+                                {item.status}
+                              </LandingGlassPill>
+                            </motion.button>
+                          </MagneticRow>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </>
+              ) : (
                 <p className="pt-4 text-[13px] text-white/30">No pending actions</p>
               )}
             </motion.div>
