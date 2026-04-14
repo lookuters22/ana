@@ -12,10 +12,10 @@ Reduce unnecessary client reloads, background polling, and oversized fetches so 
 
 Read these first:
 
-1. [ARCHITECTURE.md](C:/Users/Despot/Desktop/wedding/docs/v3/ARCHITECTURE.md)
-2. [DATABASE_SCHEMA.md](C:/Users/Despot/Desktop/wedding/docs/v3/DATABASE_SCHEMA.md)
-3. [V3_PRODUCTION_READINESS_ATTACK_PLAN.md](C:/Users/Despot/Desktop/wedding/docs/v3/V3_PRODUCTION_READINESS_ATTACK_PLAN.md)
-4. [V3_PRODUCTION_READINESS_SLICE2_DATABASE_MELTDOWN.md](C:/Users/Despot/Desktop/wedding/docs/v3/V3_PRODUCTION_READINESS_SLICE2_DATABASE_MELTDOWN.md)
+1. [ARCHITECTURE.md](./ARCHITECTURE.md)
+2. [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md)
+3. [V3_PRODUCTION_READINESS_ATTACK_PLAN.md](./V3_PRODUCTION_READINESS_ATTACK_PLAN.md)
+4. [V3_PRODUCTION_READINESS_SLICE2_DATABASE_MELTDOWN.md](./V3_PRODUCTION_READINESS_SLICE2_DATABASE_MELTDOWN.md)
 
 This slice should build on the stabilized backend/query layer from the earlier slices.
 

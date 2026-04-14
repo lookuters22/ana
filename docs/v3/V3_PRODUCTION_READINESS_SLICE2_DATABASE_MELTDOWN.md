@@ -12,10 +12,10 @@ Replace brute-force or fake backend retrieval with real database-native behavior
 
 Read these first:
 
-1. [ARCHITECTURE.md](C:/Users/Despot/Desktop/wedding/docs/v3/ARCHITECTURE.md)
-2. [DATABASE_SCHEMA.md](C:/Users/Despot/Desktop/wedding/docs/v3/DATABASE_SCHEMA.md)
-3. [V3_PRODUCTION_READINESS_ATTACK_PLAN.md](C:/Users/Despot/Desktop/wedding/docs/v3/V3_PRODUCTION_READINESS_ATTACK_PLAN.md)
-4. [V3_PRODUCTION_READINESS_SLICE1_STOP_THE_BLEEDING.md](C:/Users/Despot/Desktop/wedding/docs/v3/V3_PRODUCTION_READINESS_SLICE1_STOP_THE_BLEEDING.md)
+1. [ARCHITECTURE.md](./ARCHITECTURE.md)
+2. [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md)
+3. [V3_PRODUCTION_READINESS_ATTACK_PLAN.md](./V3_PRODUCTION_READINESS_ATTACK_PLAN.md)
+4. [V3_PRODUCTION_READINESS_SLICE1_STOP_THE_BLEEDING.md](./V3_PRODUCTION_READINESS_SLICE1_STOP_THE_BLEEDING.md)
 
 Do not start this slice until Slice 1 is landed or at least fully understood.
 

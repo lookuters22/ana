@@ -18,8 +18,8 @@ The goal is to:
 
 Before implementing any slice, read these first and treat them as canonical:
 
-1. [ARCHITECTURE.md](C:/Users/Despot/Desktop/wedding/docs/v3/ARCHITECTURE.md)
-2. [DATABASE_SCHEMA.md](C:/Users/Despot/Desktop/wedding/docs/v3/DATABASE_SCHEMA.md)
+1. [ARCHITECTURE.md](./ARCHITECTURE.md)
+2. [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md)
 
 Do not use older V3 docs as schema truth if they conflict with those files.
 
@@ -106,9 +106,9 @@ For this cleanup pass:
 
 ## Execution Order
 
-1. [Slice 1: Stop The Bleeding](C:/Users/Despot/Desktop/wedding/docs/v3/V3_PRODUCTION_READINESS_SLICE1_STOP_THE_BLEEDING.md)
-2. [Slice 2: Database Meltdown](C:/Users/Despot/Desktop/wedding/docs/v3/V3_PRODUCTION_READINESS_SLICE2_DATABASE_MELTDOWN.md)
-3. [Slice 3: Browser Crash](C:/Users/Despot/Desktop/wedding/docs/v3/V3_PRODUCTION_READINESS_SLICE3_BROWSER_CRASH.md)
+1. [Slice 1: Stop The Bleeding](./V3_PRODUCTION_READINESS_SLICE1_STOP_THE_BLEEDING.md)
+2. [Slice 2: Database Meltdown](./V3_PRODUCTION_READINESS_SLICE2_DATABASE_MELTDOWN.md)
+3. [Slice 3: Browser Crash](./V3_PRODUCTION_READINESS_SLICE3_BROWSER_CRASH.md)
 
 ## Why This Order Matters
 

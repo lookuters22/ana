@@ -14,9 +14,9 @@ This slice should be safe to ship before any deeper memory or frontend performan
 
 Read these first:
 
-1. [ARCHITECTURE.md](C:/Users/Despot/Desktop/wedding/docs/v3/ARCHITECTURE.md)
-2. [DATABASE_SCHEMA.md](C:/Users/Despot/Desktop/wedding/docs/v3/DATABASE_SCHEMA.md)
-3. [V3_PRODUCTION_READINESS_ATTACK_PLAN.md](C:/Users/Despot/Desktop/wedding/docs/v3/V3_PRODUCTION_READINESS_ATTACK_PLAN.md)
+1. [ARCHITECTURE.md](./ARCHITECTURE.md)
+2. [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md)
+3. [V3_PRODUCTION_READINESS_ATTACK_PLAN.md](./V3_PRODUCTION_READINESS_ATTACK_PLAN.md)
 
 ## Scope
 
