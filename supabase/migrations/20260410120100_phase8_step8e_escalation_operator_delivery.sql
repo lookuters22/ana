@@ -3,14 +3,18 @@
 -- batch_later: hold for digest (no immediate buzz).
 -- dashboard_only: visible in app only (no WhatsApp).
 
-CREATE TYPE public.escalation_operator_delivery AS ENUM (
-  'urgent_now',
-  'batch_later',
-  'dashboard_only'
-);
+DO $$ BEGIN
+  CREATE TYPE public.escalation_operator_delivery AS ENUM (
+    'urgent_now',
+    'batch_later',
+    'dashboard_only'
+  );
+EXCEPTION
+  WHEN duplicate_object THEN null;
+END $$;
 
 ALTER TABLE public.escalation_requests
-  ADD COLUMN operator_delivery public.escalation_operator_delivery NOT NULL DEFAULT 'urgent_now';
+  ADD COLUMN IF NOT EXISTS operator_delivery public.escalation_operator_delivery NOT NULL DEFAULT 'urgent_now';
 
 COMMENT ON COLUMN public.escalation_requests.operator_delivery IS
   'How to surface this escalation: urgent WhatsApp, batched digest, or dashboard queue only (Step 8E).';
