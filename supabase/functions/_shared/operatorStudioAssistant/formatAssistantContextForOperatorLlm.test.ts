@@ -372,6 +372,9 @@ describe("formatAssistantContextForOperatorLlm", () => {
       },
     });
     expect(s).toContain("## Recent thread & email activity");
+    expect(s).toMatch(/Envelope only/);
+    expect(s).toMatch(/not.*message bodies|message bodies.*not/i);
+    expect(s).toMatch(/Do not.*summarize.*title alone|title alone/i);
     expect(s).toContain("last inbound");
     expect(s).toContain("last outbound");
     expect(s).toContain("`t1`");

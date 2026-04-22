@@ -395,7 +395,7 @@ function formatThreadMessageLookupForOperatorLlm(ctx: AssistantContext): string 
   const lines: string[] = [];
   lines.push("## Recent thread & email activity (read-only, bounded)");
   lines.push(
-    "*(Deterministic `threads` rows — `last_inbound_at` / `last_outbound_at` / `last_activity_at` from the database. No full message bodies; not a search over all history.)*",
+    "*(Deterministic `threads` rows — last activity / inbound / outbound times from the database. **Envelope only:** subject/title, channel, kind, timestamps, thread id — **not** message bodies, snippets, or sender text. **Do not** summarize “what the email is about” from the title alone; if asked for body-level content, say it is not in this view and point the operator to Inbox / the thread. Not a search over all history.)*",
   );
   lines.push("");
   if (

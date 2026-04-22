@@ -300,6 +300,15 @@ describe("OPERATOR_STUDIO_ASSISTANT_SYSTEM_PROMPT (Slice 2)", () => {
     const n = p.match(/\*\*Follow-up resolution \(Slice 6 — carry-forward pointer\):\*\*/g)?.length;
     expect(n).toBe(1);
   });
+
+  it("thread / email honesty: title is not body; no inferring message content from subject line", () => {
+    const p = OPERATOR_STUDIO_ASSISTANT_SYSTEM_PROMPT;
+    expect(p).toMatch(/\*\*Thread & email metadata \(Context — honesty\):\*\*/);
+    expect(p).toMatch(/Recent thread & email activity/);
+    expect(p).toMatch(/A thread title is not the message body/);
+    expect(p).toMatch(/Do not.*paraphrase|infer.*title alone/i);
+    expect(p).toMatch(/Inbox/);
+  });
 });
 
 describe("completeOperatorStudioAssistantLlm (mocked OpenAI)", () => {
