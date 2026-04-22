@@ -1,5 +1,4 @@
-import { useEffect, useRef, useState } from "react";
-import { flushSync } from "react-dom";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence, useMotionValue } from "framer-motion";
 import { useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
@@ -18,6 +17,11 @@ import {
   type OperatorStudioAssistantInvokePayload,
 } from "../lib/operatorStudioAssistantWidgetResult.ts";
 import { logAnaStreamLine, operatorAnaStreamDebugEnabled } from "../lib/operatorAnaStreamDebug.ts";
+import {
+  computeRevealNewLength,
+  type RevealState,
+  shouldBypassPacedDrain,
+} from "../lib/operatorAnaStreamSmoothReveal.ts";
 import { consumeOperatorAssistantSseStream } from "../lib/operatorStudioAssistantStreamClient.ts";
 import { getSupabaseEdgeFunctionErrorMessage } from "../lib/supabaseEdgeFunctionErrorMessage.ts";
 import {
@@ -137,6 +141,14 @@ export function SupportAssistantWidget() {
   /** Bumps to invalidate in-flight `setIsSubmitting` work when a new submit or unmount/close cancels. */
   const submitGenRef = useRef(0);
   const streamAbortRef = useRef<AbortController | null>(null);
+  const revealStateRef = useRef<RevealState | null>(null);
+  const cancelPacedReveal = useCallback(() => {
+    const st = revealStateRef.current;
+    if (st?.rafId != null) {
+      cancelAnimationFrame(st.rafId);
+    }
+    revealStateRef.current = null;
+  }, []);
 
   const pathFocus = deriveOperatorAnaFocusFromPathname(pathname);
   const pathFocusKey = `${pathFocus.weddingId ?? ""}|${pathFocus.personId ?? ""}`;
@@ -156,19 +168,21 @@ export function SupportAssistantWidget() {
     if (!open) {
       submitGenRef.current += 1;
       streamAbortRef.current?.abort();
+      cancelPacedReveal();
       setIsSubmitting(false);
       setAnaTyping(false);
       setMessages((m) => m.filter((x) => !isAssistantInFlightLine(x)));
       carryForwardRef.current = null;
     }
-  }, [open]);
+  }, [open, cancelPacedReveal]);
 
   useEffect(() => {
     return () => {
       submitGenRef.current += 1;
       streamAbortRef.current?.abort();
+      cancelPacedReveal();
     };
-  }, []);
+  }, [cancelPacedReveal]);
 
   const focusLabel = operatorAnaFocusBadgeLabel(pathFocus);
 
@@ -373,6 +387,7 @@ export function SupportAssistantWidget() {
     };
 
     if (operatorAssistantStreamingV1Enabled()) {
+      cancelPacedReveal();
       streamAbortRef.current?.abort();
       const ac = new AbortController();
       streamAbortRef.current = ac;
@@ -431,6 +446,79 @@ export function SupportAssistantWidget() {
           }
           throw new Error(detail);
         }
+        const finalizePacedReveal = () => {
+          const st0 = revealStateRef.current;
+          if (st0?.rafId != null) {
+            cancelAnimationFrame(st0.rafId);
+            st0.rafId = null;
+          }
+          const pending = st0?.pendingFinal;
+          if (!st0 || !pending) {
+            revealStateRef.current = null;
+            return;
+          }
+          setMessages((m) =>
+            m.map((x) =>
+              x.id === st0.inFlightId && isAssistantInFlightLine(x)
+                ? {
+                    id: st0.inFlightId,
+                    role: "assistant" as const,
+                    display: pending.display,
+                    focusSnapshot: pending.focusSnapshot,
+                  }
+                : x,
+            ),
+          );
+          revealStateRef.current = null;
+        };
+
+        const waitPacedDrained = () =>
+          new Promise<void>((resolve) => {
+            const run = () => {
+              if (revealStateRef.current == null) {
+                resolve();
+                return;
+              }
+              requestAnimationFrame(run);
+            };
+            run();
+          });
+
+        const tick = (ts: number) => {
+          const st = revealStateRef.current;
+          if (!st || st.inFlightId !== inFlightId) return;
+          const { newDisplayedLen, lastTs: nextLast } = computeRevealNewLength(
+            {
+              receivedLen: st.received.length,
+              displayedLen: st.displayedLen,
+              receivedEnded: st.receivedEnded,
+              lastTs: st.lastTs,
+            },
+            ts,
+          );
+          st.lastTs = nextLast;
+          if (newDisplayedLen !== st.displayedLen) {
+            st.displayedLen = newDisplayedLen;
+            setMessages((prev) =>
+              prev.map((x) =>
+                x.id === inFlightId && isAssistantInFlightLine(x)
+                  ? { ...x, streamingText: st.received.slice(0, st.displayedLen) }
+                  : x,
+              ),
+            );
+          }
+          if (st.receivedEnded && st.displayedLen >= st.received.length) {
+            st.rafId = null;
+            finalizePacedReveal();
+            return;
+          }
+          if (st.displayedLen < st.received.length) {
+            st.rafId = requestAnimationFrame(tick);
+            return;
+          }
+          st.rafId = null;
+        };
+
         let streamTokenCount = 0;
         for await (const ev of consumeOperatorAssistantSseStream(res, ac.signal)) {
           if (ev.type === "token") {
@@ -444,14 +532,19 @@ export function SupportAssistantWidget() {
                 }
                 logAnaStreamLine(`token #${streamTokenCount} (+${d.length} chars) at ${ms}ms`);
               }
-              // Avoid React batching many token updates from one read into a single paint.
-              flushSync(() => {
-                setMessages((m) =>
-                  m.map((x) =>
-                    x.id === inFlightId && isAssistantInFlightLine(x) ? { ...x, streamingText: x.streamingText + d } : x,
-                  ),
-                );
+              const st0 = (revealStateRef.current ??= {
+                inFlightId,
+                received: "",
+                displayedLen: 0,
+                lastTs: performance.now(),
+                rafId: null,
+                receivedEnded: false,
+                pendingFinal: null,
               });
+              st0.received += d;
+              if (st0.rafId == null) {
+                st0.rafId = requestAnimationFrame(tick);
+              }
             }
           } else if (ev.type === "done") {
             if (streamDebug) {
@@ -469,13 +562,28 @@ export function SupportAssistantWidget() {
                 ? (nextCf as OperatorAnaCarryForwardClientState)
                 : null;
             const display = buildOperatorStudioAssistantAssistantDisplay(payload, { devMode: import.meta.env.DEV });
-            setMessages((m) =>
-              m.map((x) =>
-                x.id === inFlightId && isAssistantInFlightLine(x)
-                  ? { id: inFlightId, role: "assistant" as const, display, focusSnapshot: currentFocus }
-                  : x,
-              ),
-            );
+            const st = revealStateRef.current;
+            if (!st) {
+              setMessages((m) =>
+                m.map((x) =>
+                  x.id === inFlightId && isAssistantInFlightLine(x)
+                    ? { id: inFlightId, role: "assistant" as const, display, focusSnapshot: currentFocus }
+                    : x,
+                ),
+              );
+            } else {
+              st.pendingFinal = { display, focusSnapshot: currentFocus };
+              st.receivedEnded = true;
+              if (shouldBypassPacedDrain(st.received.length)) {
+                if (st.rafId != null) {
+                  cancelAnimationFrame(st.rafId);
+                }
+                st.rafId = null;
+                finalizePacedReveal();
+              } else if (st.rafId == null) {
+                st.rafId = requestAnimationFrame(tick);
+              }
+            }
           } else if (ev.type === "error") {
             if (streamDebug) {
               logAnaStreamLine(
@@ -487,6 +595,7 @@ export function SupportAssistantWidget() {
           }
         }
         if (!sawDone) {
+          cancelPacedReveal();
           if (streamDebug) {
             logAnaStreamLine(
               `stream ended before done after ${streamTokenCount} token(s) at ${Math.round(performance.now() - tStream0)}ms`,
@@ -494,10 +603,13 @@ export function SupportAssistantWidget() {
           }
           throw new Error("Stream ended before done");
         }
+        await waitPacedDrained();
       } catch (err) {
         if (isUserAbortError(err)) {
+          cancelPacedReveal();
           return;
         }
+        cancelPacedReveal();
         setMessages((m) => m.filter((x) => x.id !== inFlightId));
         const msg = err instanceof Error ? err.message : "Unknown error";
         alert(`Failed to send message: ${msg}`);
