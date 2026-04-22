@@ -1,4 +1,6 @@
-# Keep Vercel CLI uploads under size limits (default deployment uses repo root).
+# Keep Vercel deploy workspace lean. Do NOT list patterns that could match
+# `public/landing2/` (app fonts live there). Root scratch dirs `LANDING2/` and
+# `COPY/` are already in `.gitignore` and are not in Git — no need to repeat here.
 node_modules
 dist
 supabase
@@ -7,8 +9,6 @@ playwright-report
 test-results
 reports
 .cursor
-LANDING2
-COPY
 HEROEXTRACT
 chunks
 csschunks

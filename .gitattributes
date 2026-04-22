@@ -1,0 +1,5 @@
+# Font files under public/ must stay binary-safe (no CRLF / EOL normalization).
+public/**/*.otf binary
+public/**/*.ttf binary
+public/**/*.woff binary
+public/**/*.woff2 binary
