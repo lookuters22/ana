@@ -16,6 +16,7 @@ vi.mock("./handleOperatorStudioAssistantPost.ts", async (importOriginal) => {
 
 import {
   createOperatorStudioAssistantSseResponse,
+  OPERATOR_STUDIO_ASSISTANT_SSE_BASE_HEADERS,
   parseSseTextForTests,
   requestWantsSseEventStream,
   shouldUseOperatorStudioAssistantSse,
@@ -29,6 +30,13 @@ function req(accept: string | null) {
 describe("operatorStudioAssistantSseResponse (Slice 4)", () => {
   beforeEach(() => {
     handleStreamingMock.mockReset();
+  });
+
+  it("SSE base headers: anti-buffer and no-transform for progressive delivery", () => {
+    expect(OPERATOR_STUDIO_ASSISTANT_SSE_BASE_HEADERS["Content-Type"]).toContain("text/event-stream");
+    expect(OPERATOR_STUDIO_ASSISTANT_SSE_BASE_HEADERS["Cache-Control"] ?? "").toMatch(/no-cache/);
+    expect(OPERATOR_STUDIO_ASSISTANT_SSE_BASE_HEADERS["Cache-Control"] ?? "").toMatch(/no-transform/);
+    expect(OPERATOR_STUDIO_ASSISTANT_SSE_BASE_HEADERS["X-Accel-Buffering"]).toBe("no");
   });
 
   it("negotiation: flag off or missing => shouldUse is false", () => {
@@ -77,7 +85,10 @@ describe("operatorStudioAssistantSseResponse (Slice 4)", () => {
     );
 
     expect(res.status).toBe(200);
-    expect(res.headers.get("Content-Type")).toBe("text/event-stream");
+    expect(res.headers.get("Content-Type")).toBe("text/event-stream; charset=utf-8");
+    expect(res.headers.get("Cache-Control")).toBe("no-cache, no-transform, private");
+    expect(res.headers.get("X-Accel-Buffering")).toBe("no");
+    expect(res.headers.get("Vary")).toBe("Accept, Origin");
     const raw = await new Response(res.body).text();
     const events = await parseSseTextForTests(raw);
     expect(events.map((e) => e.event)).toEqual(["token", "token", "done"]);

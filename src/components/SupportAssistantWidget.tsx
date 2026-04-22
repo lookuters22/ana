@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { motion, AnimatePresence, useMotionValue } from "framer-motion";
 import { useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
@@ -425,11 +426,14 @@ export function SupportAssistantWidget() {
           if (ev.type === "token") {
             const d = (ev.data as { delta?: string } | null)?.delta;
             if (typeof d === "string" && d.length > 0) {
-              setMessages((m) =>
-                m.map((x) =>
-                  x.id === inFlightId && isAssistantInFlightLine(x) ? { ...x, streamingText: x.streamingText + d } : x,
-                ),
-              );
+              // Avoid React batching many token updates from one read into a single paint.
+              flushSync(() => {
+                setMessages((m) =>
+                  m.map((x) =>
+                    x.id === inFlightId && isAssistantInFlightLine(x) ? { ...x, streamingText: x.streamingText + d } : x,
+                  ),
+                );
+              });
             }
           } else if (ev.type === "done") {
             sawDone = true;

@@ -45,6 +45,22 @@ export function shouldUseOperatorStudioAssistantSse(
 }
 
 /**
+ * Base headers for SSE on the wire (merged with CORS in {@link createOperatorStudioAssistantSseResponse}).
+ * - `no-transform` discourages intermediaries from re-encoding (e.g. gzip) the stream, which often buffers
+ *   to build compression blocks and breaks progressive `fetch` + `getReader()` delivery.
+ * - `X-Accel-Buffering: no` is honored by nginx and common reverse proxies to disable response buffering.
+ * - `Vary: Accept` matches JSON vs SSE negotiation for shared caches.
+ */
+export const OPERATOR_STUDIO_ASSISTANT_SSE_BASE_HEADERS: Record<string, string> = {
+  "Content-Type": "text/event-stream; charset=utf-8",
+  "Cache-Control": "no-cache, no-transform, private",
+  Connection: "keep-alive",
+  "X-Accel-Buffering": "no",
+  Vary: "Accept, Origin",
+  Pragma: "no-cache",
+};
+
+/**
  * `200` response with CORS, SSE headers, and a `ReadableStream` of `token` / `done` or `error` events.
  */
 export function createOperatorStudioAssistantSseResponse(
@@ -84,12 +100,7 @@ export function createOperatorStudioAssistantSseResponse(
 
   return new Response(stream, {
     status: 200,
-    headers: {
-      ...corsHeaders,
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      Connection: "keep-alive",
-    },
+    headers: { ...corsHeaders, ...OPERATOR_STUDIO_ASSISTANT_SSE_BASE_HEADERS },
   });
 }
 
