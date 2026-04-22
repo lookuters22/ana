@@ -314,10 +314,10 @@ These came up in the analysis but do not have a concrete, labeled UI path in the
 
 ### NE2 — Review / approve / reject playbook rule candidates
 
-- **Finding:** No operator dashboard for `playbook_rule_candidates` exists. The backend table and `review_playbook_rule_candidate` RPC exist; there is no UI that lists candidates or exposes the review action.
-- **Reality:** The Escalations page uses a `promote_to_playbook` flag on resolved escalations, but that is not a candidate-review dashboard.
-- **If asked:** Ana should acknowledge that a candidate-review UI is not yet available and propose the rule change via the widget's `playbook_rule_candidate` propose-confirm path instead. The rule then accumulates for a future review surface.
-- **Encode later:** when the candidate-review dashboard ships (this is a known gap in the widget capability plan).
+- **Finding (updated):** Workspace ships a **read-only list** at `/workspace/playbook-rule-candidates` (**Studio tools → Rule candidates (review)**) so operators can see staged `playbook_rule_candidates` (topic, instruction, decision mode, scope, status, source). **In-app approve/reject** actions are **not** wired in v1; the backend `review_playbook_rule_candidate` RPC exists for a follow-up slice.
+- **Reality:** The Escalations path with `promote_to_playbook` remains separate from this list.
+- **If asked:** Ana should point to the Workspace list for visibility, clarify that rows are **not** active playbook rules until promoted, and use honesty note `ne2_no_rule_candidate_dashboard` for promotion limits. The widget `playbook_rule_candidate` propose-confirm path still creates rows.
+- **Encode:** list + route in `operatorAssistantAppCatalog.ts`; defer full promotion UI to a later slice.
 
 ### NE3 — Re-enter onboarding after completion
 
@@ -377,7 +377,7 @@ Every entry above cites a real component, route, label, or button observed in th
 Do **not** encode the following until the referenced UI exists:
 
 - **NE1** Create a task manually — no UI affordance
-- **NE2** Review / approve a rule candidate — no operator dashboard
+- **NE2** Approve/reject a rule candidate **in-app** — list exists; promotion controls deferred (use honesty note)
 - **NE3** Re-enter onboarding — no discoverable Settings link (direct-URL guidance only)
 - **NE4** Find auto-filed threads — no dedicated filter
 - **NE5** "Ana drafts"-labeled surface — unconfirmed; use `/approvals` or `Has draft` filter instead

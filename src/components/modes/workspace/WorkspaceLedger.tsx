@@ -242,7 +242,8 @@ export function WorkspaceLedger() {
   const isStudioRoute =
     pathname.startsWith("/workspace/pricing-calculator") ||
     pathname.startsWith("/workspace/offer-builder") ||
-    pathname.startsWith("/workspace/invoices");
+    pathname.startsWith("/workspace/invoices") ||
+    pathname.startsWith("/workspace/playbook-rule-candidates");
 
   if (isStudioRoute) return <StudioToolPane />;
 

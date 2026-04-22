@@ -93,6 +93,7 @@ export const APP_ROUTES: AppRouteEntry[] = [
   { path: "/workspace/invoices", title: "Invoices PDF", purpose: "Inv" },
   { path: "/workspace/offer-builder", title: "Offer hub", purpose: "Off" },
   { path: "/workspace/offer-builder/edit/:projectId", title: "Offer edit", purpose: "1 offer" },
+  { path: "/workspace/playbook-rule-candidates", title: "Rule candidates", purpose: "Review" },
   { path: "/directory", title: "Directory", purpose: "Ppl" },
   { path: "/settings", title: "Settings", purpose: "Hub" },
   { path: "/settings/onboarding", title: "Settings (onboarding)", purpose: "→ /onboarding" },
@@ -231,6 +232,7 @@ export const APP_MODE_LEFT_RAILS: Record<string, LeftRailSection[]> = {
       { label: "Pricing Calculator", description: "/w/price" },
       { label: "Offer Builder", description: "/w/offer" },
       { label: "Invoice PDF Setup", description: "/w/inv" },
+      { label: "Rule candidates (review)", description: "/w/candidates" },
     ] },
   ],
   settings: [
@@ -395,9 +397,22 @@ export const APP_PROCEDURAL_WORKFLOWS: readonly OperatorAppProceduralWorkflow[] 
     entryPoints: ["Dock **Projects** → `/workspace`"],
     steps: [
       "Go to **Workspace** / **Projects** (`/workspace`).",
-      "In the left rail under **Studio Tools**, open **Pricing Calculator** (`/workspace/pricing-calculator`), **Offer Builder** (`/workspace/offer-builder`), or **Invoice PDF Setup** (`/workspace/invoices`).",
+      "In the left rail under **Studio Tools**, open **Pricing Calculator** (`/workspace/pricing-calculator`), **Offer Builder** (`/workspace/offer-builder`), **Invoice PDF Setup** (`/workspace/invoices`), or **Rule candidates (review)** (`/workspace/playbook-rule-candidates`).",
     ],
     notes: "Labels/routes are mirrored in `APP_MODE_LEFT_RAILS.workspace` and `WorkspaceContextList.tsx`.",
+    groundingConfidence: "high",
+  },
+  {
+    id: "open_playbook_rule_candidates",
+    title: "Review playbook rule candidates (staged, not active rules)",
+    primaryRoute: "/workspace/playbook-rule-candidates",
+    entryPoints: ["Dock **Projects** → **Rule candidates (review)**"],
+    steps: [
+      "Go to **Workspace** (`/workspace`).",
+      "Under **Studio tools**, click **Rule candidates (review)** or open `/workspace/playbook-rule-candidates` directly.",
+      "Read the list: each row shows topic, proposed instruction, decision mode, scope/channel, review status, and source. **Candidates are not live playbook rules** until promoted.",
+    ],
+    notes: "v1 is a read-only list; approve/reject in-app is deferred — see honesty `ne2_no_rule_candidate_dashboard`.",
     groundingConfidence: "high",
   },
   {
@@ -452,9 +467,9 @@ export const APP_WORKFLOW_HONESTY_NOTES: readonly OperatorAppWorkflowHonestyNote
   },
   {
     id: "ne2_no_rule_candidate_dashboard",
-    title: "No playbook rule-candidate review dashboard",
+    title: "Rule candidates — list only in v1 (promotion UI later)",
     shortGuidance:
-      "No operator UI to approve/reject `playbook_rule_candidates` yet — use the widget’s playbook rule proposal or wait for a future review surface.",
+      "Workspace **Rule candidates (review)** (`/workspace/playbook-rule-candidates`) lists staged rows and status; they are **not** active rules until promoted. In-app approve/reject buttons are not wired yet — backend `review_playbook_rule_candidate` exists for a follow-up slice.",
   },
   {
     id: "ne3_onboarding_reentry",
@@ -488,7 +503,7 @@ export const APP_WORKFLOW_POINTERS: WorkflowPointer[] = [
   {
     id: "rule-candidate-honest",
     pointer:
-      "Playbook rule candidates: **no** review dashboard in the app — see `APP_WORKFLOW_HONESTY_NOTES.ne2_no_rule_candidate_dashboard` and use Ana’s propose-confirm when appropriate.",
+      "Playbook rule candidates: **Workspace → Studio tools → Rule candidates (review)** (`/workspace/playbook-rule-candidates`) — list + fields; see `APP_WORKFLOW_HONESTY_NOTES.ne2_no_rule_candidate_dashboard` for promotion limits. Ana propose-confirm still creates rows.",
   },
   {
     id: "automation-mode",

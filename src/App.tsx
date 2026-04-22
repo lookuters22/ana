@@ -17,6 +17,9 @@ const OfferBuilderEditorPage = lazy(() =>
 const InvoiceSetupPage = lazy(() =>
   import("./pages/settings/InvoiceSetupPage").then((m) => ({ default: m.InvoiceSetupPage })),
 );
+const PlaybookRuleCandidatesPage = lazy(() =>
+  import("./pages/workspace/PlaybookRuleCandidatesPage").then((m) => ({ default: m.PlaybookRuleCandidatesPage })),
+);
 const LandingPage = lazy(() =>
   import("./pages/LandingPage/LandingPage").then((m) => ({ default: m.LandingPage })),
 );
@@ -100,6 +103,14 @@ export default function App() {
         {/* Workspace mode */}
         <Route path="workspace" element={null} />
         <Route path="workspace/pricing-calculator" element={<PricingCalculatorPage />} />
+        <Route
+          path="workspace/playbook-rule-candidates"
+          element={
+            <Suspense fallback={<LazyFallback />}>
+              <PlaybookRuleCandidatesPage />
+            </Suspense>
+          }
+        />
         <Route
           path="workspace/invoices"
           element={

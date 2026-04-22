@@ -156,7 +156,7 @@ describe("operatorAssistantAppCatalog", () => {
       { file: join("components", "modes", "pipeline", "PipelineContextList.tsx"), substrings: ["Inquiries", "Active bookings", "Deliverables", "Archived"] },
       { file: join("components", "modes", "calendar", "CalendarContextList.tsx"), substrings: ["Event types", "Workspaces", "Schedule", "Booking links", "Travel blocks", "Timezones"] },
       { file: join("components", "modes", "directory", "DirectoryContextList.tsx"), substrings: ["Categories", "All Contacts", "Clients", "Vendors", "Venues"] },
-      { file: join("components", "modes", "workspace", "WorkspaceContextList.tsx"), substrings: ["Financials", "Sales", "Studio Tools", "Pricing Calculator", "Offer Builder", "Invoice PDF Setup"] },
+      { file: join("components", "modes", "workspace", "WorkspaceContextList.tsx"), substrings: ["Financials", "Sales", "Studio Tools", "Pricing Calculator", "Offer Builder", "Invoice PDF Setup", "Rule candidates (review)"] },
       { file: join("components", "modes", "settings", "SettingsContextList.tsx"), substrings: ["General", "AI & Tone"] },
     ];
     for (const { file, substrings } of checks) {

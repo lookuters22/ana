@@ -8,6 +8,7 @@ import {
   Calculator,
   Package,
   Receipt,
+  BookMarked,
 } from "lucide-react";
 import {
   ContextPaneRoot,
@@ -35,6 +36,13 @@ const TOOL_ITEMS: NavItem[] = [
   { id: "pricing-calculator", label: "Pricing Calculator", icon: Calculator, showCount: false, route: "/workspace/pricing-calculator" },
   { id: "offer-builder", label: "Offer Builder", icon: Package, showCount: false, route: "/workspace/offer-builder" },
   { id: "invoice-pdf", label: "Invoice PDF Setup", icon: Receipt, showCount: false, route: "/workspace/invoices" },
+  {
+    id: "playbook-rule-candidates",
+    label: "Rule candidates (review)",
+    icon: BookMarked,
+    showCount: false,
+    route: "/workspace/playbook-rule-candidates",
+  },
 ];
 
 export function WorkspaceContextList() {
@@ -70,6 +78,7 @@ function resolveActiveIndex(ctxIndex: WorkspaceIndex, pathname: string): Workspa
   if (pathname.startsWith("/workspace/pricing-calculator")) return "pricing-calculator";
   if (pathname.startsWith("/workspace/offer-builder")) return "offer-builder";
   if (pathname.startsWith("/workspace/invoices")) return "invoice-pdf";
+  if (pathname.startsWith("/workspace/playbook-rule-candidates")) return "playbook-rule-candidates";
   return ctxIndex;
 }
 

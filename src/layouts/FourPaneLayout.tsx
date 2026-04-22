@@ -288,7 +288,8 @@ function WorkspaceMode() {
 
   if (
     pathname.startsWith("/workspace/pricing-calculator") ||
-    pathname.startsWith("/workspace/offer-builder")
+    pathname.startsWith("/workspace/offer-builder") ||
+    pathname.startsWith("/workspace/playbook-rule-candidates")
   ) {
     return (
       <WorkspaceModeProvider>

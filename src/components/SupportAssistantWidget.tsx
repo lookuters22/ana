@@ -210,7 +210,11 @@ export function SupportAssistantWidget() {
       }
       const cid = (data as { candidateId?: string } | null)?.candidateId;
       setConsumedProposalKeysByMessageId((prev) => addConsumedProposalKey(prev, assistantMessageId, key));
-      alert(cid ? `Rule candidate created. Review in your playbook candidates list. ID: ${cid}` : "Candidate created.");
+      alert(
+        cid
+          ? `Rule candidate created. Review it under Projects → Workspace → Rule candidates (review), or /workspace/playbook-rule-candidates. ID: ${cid}`
+          : "Candidate created.",
+      );
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Unknown error";
       alert(`Could not create candidate: ${msg}`);
