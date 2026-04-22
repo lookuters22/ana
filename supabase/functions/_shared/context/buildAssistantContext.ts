@@ -35,10 +35,16 @@ import {
   shouldRunOperatorQueryEntityResolution,
 } from "./resolveOperatorQueryEntitiesFromIndex.ts";
 import {
+  fetchAssistantThreadMessageBodies,
+  IDLE_ASSISTANT_THREAD_MESSAGE_BODIES,
+} from "./fetchAssistantThreadMessageBodies.ts";
+import {
   fetchAssistantThreadMessageLookup,
   IDLE_ASSISTANT_THREAD_MESSAGE_LOOKUP,
 } from "./fetchAssistantThreadMessageLookup.ts";
+import { hasOperatorQueueStateIntent } from "../../../../src/lib/operatorAssistantOperatorStateIntent.ts";
 import {
+  hasOperatorThreadMessageBodyLookupIntent,
   hasOperatorThreadMessageLookupIntent,
   querySuggestsCommercialOrNonWeddingInboundFocus,
 } from "../../../../src/lib/operatorAssistantThreadMessageLookupIntent.ts";
@@ -46,6 +52,7 @@ import {
   hasOperatorInquiryCountContinuityIntent,
   hasOperatorInquiryCountIntent,
 } from "../../../../src/lib/operatorAssistantInquiryCountIntent.ts";
+import { classifyOperatorAnaTriage } from "../../../../src/lib/operatorAnaTriage.ts";
 import { hasOperatorCalendarScheduleIntent } from "../../../../src/lib/operatorAssistantCalendarScheduleIntent.ts";
 import { buildOperatorCalendarLookupPlan } from "../../../../src/lib/operatorAssistantCalendarLookupPlan.ts";
 import {
@@ -251,6 +258,26 @@ export async function buildAssistantContext(
     queryResolvedProjectFacts,
   };
 
+  const operatorTriage = classifyOperatorAnaTriage({
+    queryText,
+    weddingIdEffective,
+    carryForward,
+    entityResolution: {
+      weddingSignal: operatorQueryEntityResolution.weddingSignal,
+      uniqueWeddingId: operatorQueryEntityResolution.uniqueWeddingId,
+    },
+  });
+
+  console.log(
+    JSON.stringify({
+      type: "operator_ana_triage",
+      fingerprint: queryTextFingerprint(queryText),
+      primary: operatorTriage.primary,
+      secondary: operatorTriage.secondary,
+      reason: operatorTriage.reason,
+    }),
+  );
+
   const loadThreadMessageLookup = hasOperatorThreadMessageLookupIntent(queryText);
   if (loadThreadMessageLookup) {
     scopesQueried.push("operator_thread_message_lookup");
@@ -305,6 +332,22 @@ export async function buildAssistantContext(
         : Promise.resolve(IDLE_ASSISTANT_CALENDAR_SNAPSHOT),
     ]);
 
+  let operatorThreadMessageBodies = IDLE_ASSISTANT_THREAD_MESSAGE_BODIES;
+  if (
+    hasOperatorThreadMessageBodyLookupIntent(queryText) &&
+    operatorThreadMessageLookup.didRun &&
+    operatorThreadMessageLookup.threads.length === 1
+  ) {
+    operatorThreadMessageBodies = await fetchAssistantThreadMessageBodies(
+      supabase,
+      tenantPhotographerId,
+      operatorThreadMessageLookup.threads[0]!.threadId,
+    );
+    if (operatorThreadMessageBodies.didRun) {
+      scopesQueried.push("operator_thread_message_bodies");
+    }
+  }
+
   const retrievalLog: AssistantRetrievalLog = {
     mode: "assistant_query",
     queryDigest: {
@@ -335,6 +378,11 @@ export async function buildAssistantContext(
       didRun: operatorThreadMessageLookup.didRun,
       threadCount: operatorThreadMessageLookup.threads.length,
     },
+    threadMessageBodies: {
+      didRun: operatorThreadMessageBodies.didRun,
+      messageCount: operatorThreadMessageBodies.messages.length,
+      truncated: operatorThreadMessageBodies.truncatedOverall,
+    },
     inquiryCountSnapshot: {
       didRun: operatorInquiryCountSnapshot.didRun,
       truncated: operatorInquiryCountSnapshot.truncated,
@@ -347,6 +395,7 @@ export async function buildAssistantContext(
       truncated: operatorCalendarSnapshot.truncated,
       lookupMode: operatorCalendarSnapshot.lookupMode,
     },
+    operatorQueueIntentMatched: hasOperatorQueueStateIntent(queryText),
     playbookCoverage: {
       totalActiveRules: playbookCoverageSummary.totalActiveRules,
       uniqueTopicCount: playbookCoverageSummary.uniqueTopics.length,
@@ -393,11 +442,13 @@ export async function buildAssistantContext(
     studioAnalysisSnapshot: studioAnalysisSnapshot,
     operatorQueryEntityResolution,
     operatorThreadMessageLookup,
+    operatorThreadMessageBodies,
     operatorInquiryCountSnapshot,
     operatorCalendarSnapshot,
     memoryHeaders: headerOut,
     selectedMemories,
     globalKnowledge,
     retrievalLog,
+    operatorTriage,
   };
 }

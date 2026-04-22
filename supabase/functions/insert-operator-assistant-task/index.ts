@@ -1,5 +1,6 @@
 /**
  * JWT-authenticated: create a `tasks` row from an operator-confirmed assistant task proposal.
+ * Body: title required; dueDate optional (defaults to today UTC calendar date when omitted).
  * Does not touch playbook, memory, or threads (thread_id stays null for assistant-created tasks).
  */
 import { requirePhotographerIdFromJwt } from "../_shared/authPhotographer.ts";

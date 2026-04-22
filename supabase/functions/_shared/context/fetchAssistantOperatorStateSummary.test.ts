@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { fetchAssistantOperatorStateSummary } from "./fetchAssistantOperatorStateSummary.ts";
+import {
+  deriveOperatorQueueHighlights,
+  fetchAssistantOperatorStateSummary,
+} from "./fetchAssistantOperatorStateSummary.ts";
 
 describe("fetchAssistantOperatorStateSummary", () => {
   it("returns counts and samples from the same views as the Today feed", async () => {
@@ -80,6 +83,9 @@ describe("fetchAssistantOperatorStateSummary", () => {
     expect(s.samples.openTasks[0].id).toBe("task-1");
     expect(s.samples.openEscalations[0].id).toBe("esc-1");
     expect(s.samples.topActions.length).toBeGreaterThan(0);
+    expect(s.queueHighlights.some((h) => /escalations/i.test(h))).toBe(true);
+    expect(s.samples.linkedLeads).toEqual([]);
+    expect(s.samples.unlinkedBuckets.inquiry).toEqual([]);
   });
 
   it("derives unlinked bucket tallies and linked open leads with deriveInboxThreadBucket + INQUIRY_STAGES", async () => {
@@ -147,5 +153,40 @@ describe("fetchAssistantOperatorStateSummary", () => {
     expect(s.counts.unlinked.needsFiling).toBe(1);
     expect(s.counts.linkedOpenLeads).toBe(1);
     expect(s.counts.zenTabs.leads).toBeGreaterThanOrEqual(2);
+    expect(s.samples.linkedLeads.length).toBe(1);
+    expect(s.samples.linkedLeads[0].threadId).toBe("t-linked");
+    expect(s.samples.unlinkedBuckets.inquiry.length).toBeGreaterThan(0);
+    expect(s.samples.unlinkedBuckets.needsFiling.length).toBeGreaterThan(0);
+  });
+});
+
+describe("deriveOperatorQueueHighlights", () => {
+  it("orders touch-heavy lines and uses only count inputs", () => {
+    const h = deriveOperatorQueueHighlights({
+      pendingApprovalDrafts: 1,
+      openTasks: 2,
+      openEscalations: 1,
+      linkedOpenLeads: 0,
+      unlinked: { inquiry: 0, needsFiling: 3, operatorReview: 1, suppressed: 0 },
+      zenTabs: { review: 2, drafts: 1, leads: 0, needs_filing: 3 },
+    });
+    expect(h[0]).toMatch(/escalations/i);
+    expect(h.join(" ")).toMatch(/operator-review|Review/i);
+    expect(h.join(" ")).toMatch(/Drafts/i);
+    expect(h.join(" ")).toMatch(/Tasks/i);
+    expect(h.join(" ")).toMatch(/Needs filing/i);
+  });
+
+  it("emits a single honesty line when all counters are zero", () => {
+    const h = deriveOperatorQueueHighlights({
+      pendingApprovalDrafts: 0,
+      openTasks: 0,
+      openEscalations: 0,
+      linkedOpenLeads: 0,
+      unlinked: { inquiry: 0, needsFiling: 0, operatorReview: 0, suppressed: 0 },
+      zenTabs: { review: 0, drafts: 0, leads: 0, needs_filing: 0 },
+    });
+    expect(h).toHaveLength(1);
+    expect(h[0]).toMatch(/zero|Do not invent/i);
   });
 });

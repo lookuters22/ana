@@ -3,9 +3,12 @@ import type { AssistantContext } from "../../../../src/types/assistantContext.ty
 import type { OperatorAnaCarryForwardData, OperatorAnaCarryForwardForLlm } from "../../../../src/types/operatorAnaCarryForward.types.ts";
 import { getAssistantAppCatalogForContext } from "../../../../src/lib/operatorAssistantAppCatalog.ts";
 import { deriveAssistantPlaybookCoverageSummary } from "../../../../src/lib/deriveAssistantPlaybookCoverageSummary.ts";
+import { IDLE_ASSISTANT_OPERATOR_STATE_SUMMARY } from "../context/fetchAssistantOperatorStateSummary.ts";
+import { IDLE_ASSISTANT_THREAD_MESSAGE_BODIES } from "../context/fetchAssistantThreadMessageBodies.ts";
 import { IDLE_ASSISTANT_THREAD_MESSAGE_LOOKUP } from "../context/fetchAssistantThreadMessageLookup.ts";
 import { IDLE_ASSISTANT_INQUIRY_COUNT_SNAPSHOT } from "../context/fetchAssistantInquiryCountSnapshot.ts";
 import { IDLE_ASSISTANT_CALENDAR_SNAPSHOT } from "../context/fetchAssistantOperatorCalendarSnapshot.ts";
+import { IDLE_OPERATOR_ANA_TRIAGE } from "../../../../src/lib/operatorAnaTriage.ts";
 import { IDLE_OPERATOR_QUERY_ENTITY_RESOLUTION } from "../context/resolveOperatorQueryEntitiesFromIndex.ts";
 import {
   buildCarryForwardForLlm,
@@ -34,17 +37,8 @@ const emptyCtxBase = {
   focusedProjectSummary: null,
   focusedProjectRowHints: null,
   operatorStateSummary: {
+    ...IDLE_ASSISTANT_OPERATOR_STATE_SUMMARY,
     fetchedAt: "2020-01-01T00:00:00.000Z",
-    sourcesNote: "",
-    counts: {
-      pendingApprovalDrafts: 0,
-      openTasks: 0,
-      openEscalations: 0,
-      linkedOpenLeads: 0,
-      unlinked: { inquiry: 0, needsFiling: 0, operatorReview: 0, suppressed: 0 },
-      zenTabs: { review: 0, drafts: 0, leads: 0, needs_filing: 0 },
-    },
-    samples: { pendingDrafts: [], openEscalations: [], openTasks: [], topActions: [] },
   },
   memoryHeaders: [] as never[],
   selectedMemories: [] as never[],
@@ -54,8 +48,10 @@ const emptyCtxBase = {
   carryForward: null,
   operatorQueryEntityResolution: IDLE_OPERATOR_QUERY_ENTITY_RESOLUTION,
   operatorThreadMessageLookup: IDLE_ASSISTANT_THREAD_MESSAGE_LOOKUP,
+  operatorThreadMessageBodies: IDLE_ASSISTANT_THREAD_MESSAGE_BODIES,
   operatorInquiryCountSnapshot: IDLE_ASSISTANT_INQUIRY_COUNT_SNAPSHOT,
   operatorCalendarSnapshot: IDLE_ASSISTANT_CALENDAR_SNAPSHOT,
+  operatorTriage: IDLE_OPERATOR_ANA_TRIAGE,
   retrievalLog: {
     mode: "assistant_query" as const,
     queryDigest: { charLength: 1, fingerprint: "a" },
@@ -140,6 +136,26 @@ describe("operatorAssistantCarryForward", () => {
       [{ name: "operator_lookup_inquiry_counts", ok: true, content: JSON.stringify({ tool: "x", result: { ok: true } }) }],
     );
     expect(d.lastDomain).toBe("inquiry_counts");
+  });
+
+  it("operator_lookup_thread_messages tool sets lastThreadId and threads domain", () => {
+    const tid = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+    const content = JSON.stringify({
+      tool: "operator_lookup_thread_messages",
+      result: {
+        didRun: true,
+        threadId: tid,
+        threadTitle: "Subj",
+        messageCount: 1,
+        truncatedOverall: false,
+        messages: [{ messageId: "m1", direction: "in", sender: "a@b", sentAt: "2025-01-01", bodyExcerpt: "Hi", bodyClipped: false }],
+      },
+    });
+    const d = extractCarryForwardDataFromTurn(makeCtx(), [
+      { name: "operator_lookup_thread_messages", ok: true, content },
+    ]);
+    expect(d.lastThreadId).toBe(tid);
+    expect(d.lastDomain).toBe("threads");
   });
 
   it("sets lastEntityAmbiguous from ambiguous project resolver", () => {

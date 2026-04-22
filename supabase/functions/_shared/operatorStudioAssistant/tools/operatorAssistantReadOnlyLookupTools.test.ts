@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { AssistantContext } from "../../../../../src/types/assistantContext.types.ts";
 import { IDLE_ASSISTANT_CALENDAR_SNAPSHOT } from "../../context/fetchAssistantOperatorCalendarSnapshot.ts";
+import { IDLE_ASSISTANT_OPERATOR_STATE_SUMMARY } from "../../context/fetchAssistantOperatorStateSummary.ts";
 import { IDLE_ASSISTANT_INQUIRY_COUNT_SNAPSHOT } from "../../context/fetchAssistantInquiryCountSnapshot.ts";
+import { IDLE_ASSISTANT_THREAD_MESSAGE_BODIES } from "../../context/fetchAssistantThreadMessageBodies.ts";
 import { IDLE_ASSISTANT_THREAD_MESSAGE_LOOKUP } from "../../context/fetchAssistantThreadMessageLookup.ts";
+import { IDLE_OPERATOR_ANA_TRIAGE } from "../../../../../src/lib/operatorAnaTriage.ts";
 import { IDLE_OPERATOR_QUERY_ENTITY_RESOLUTION } from "../../context/resolveOperatorQueryEntitiesFromIndex.ts";
 import { deriveAssistantPlaybookCoverageSummary } from "../../../../../src/lib/deriveAssistantPlaybookCoverageSummary.ts";
 import { getAssistantAppCatalogForContext } from "../../../../../src/lib/operatorAssistantAppCatalog.ts";
@@ -12,6 +15,8 @@ import {
   OPERATOR_READ_ONLY_LOOKUP_TOOLS,
   projectDetailsPayloadFromFocusedFacts,
 } from "./operatorAssistantReadOnlyLookupTools.ts";
+
+const TOOL_NAMES = OPERATOR_READ_ONLY_LOOKUP_TOOLS.map((t) => t.function.name);
 
 function minimalCtx(): AssistantContext {
   const playbookRules: AssistantContext["playbookRules"] = [];
@@ -30,19 +35,7 @@ function minimalCtx(): AssistantContext {
     focusedProjectFacts: null,
     focusedProjectSummary: null,
     focusedProjectRowHints: null,
-    operatorStateSummary: {
-      fetchedAt: "2020-01-01T00:00:00.000Z",
-      sourcesNote: "",
-      counts: {
-        pendingApprovalDrafts: 0,
-        openTasks: 0,
-        openEscalations: 0,
-        linkedOpenLeads: 0,
-        unlinked: { inquiry: 0, needsFiling: 0, operatorReview: 0, suppressed: 0 },
-        zenTabs: { review: 0, drafts: 0, leads: 0, needs_filing: 0 },
-      },
-      samples: { pendingDrafts: [], openEscalations: [], openTasks: [], topActions: [] },
-    },
+    operatorStateSummary: IDLE_ASSISTANT_OPERATOR_STATE_SUMMARY,
     appCatalog: getAssistantAppCatalogForContext(),
     includeAppCatalogInOperatorPrompt: false,
     studioAnalysisSnapshot: null,
@@ -52,8 +45,10 @@ function minimalCtx(): AssistantContext {
     globalKnowledge: [],
     operatorQueryEntityResolution: IDLE_OPERATOR_QUERY_ENTITY_RESOLUTION,
     operatorThreadMessageLookup: IDLE_ASSISTANT_THREAD_MESSAGE_LOOKUP,
+    operatorThreadMessageBodies: IDLE_ASSISTANT_THREAD_MESSAGE_BODIES,
     operatorInquiryCountSnapshot: IDLE_ASSISTANT_INQUIRY_COUNT_SNAPSHOT,
     operatorCalendarSnapshot: IDLE_ASSISTANT_CALENDAR_SNAPSHOT,
+    operatorTriage: IDLE_OPERATOR_ANA_TRIAGE,
     retrievalLog: {
       mode: "assistant_query",
       queryDigest: { charLength: 1, fingerprint: "ab" },
@@ -79,6 +74,11 @@ function minimalCtx(): AssistantContext {
 }
 
 describe("executeOperatorReadOnlyLookupTool", () => {
+  it("exposes operator_lookup_thread_messages in the tool list", () => {
+    expect(TOOL_NAMES).toContain("operator_lookup_thread_messages");
+    expect(TOOL_NAMES.length).toBe(5);
+  });
+
   it("operator_lookup_projects returns JSON from entity index", async () => {
     const supabase = {
       from: (table: string) => {
@@ -238,6 +238,71 @@ describe("executeOperatorReadOnlyLookupTool", () => {
     const j = JSON.parse(raw) as { tool: string; result: { didRun: boolean } };
     expect(j.tool).toBe("operator_lookup_inquiry_counts");
     expect(j.result.didRun).toBe(true);
+  });
+
+  it("operator_lookup_thread_messages returns bounded message excerpts for a tenant thread", async () => {
+    const tid = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+    const supabase = {
+      from: (table: string) => {
+        if (table === "threads") {
+          return {
+            select: () => ({
+              eq: () => ({
+                eq: () => ({
+                  maybeSingle: () =>
+                    Promise.resolve({
+                      data: { id: tid, title: "Re: Hello", photographer_id: "p1" },
+                      error: null,
+                    }),
+                }),
+              }),
+            }),
+          };
+        }
+        if (table === "messages") {
+          return {
+            select: () => ({
+              eq: () => ({
+                eq: () => ({
+                  order: () => ({
+                    limit: () =>
+                      Promise.resolve({
+                        data: [
+                          {
+                            id: "m1",
+                            direction: "in",
+                            sender: "client@example.com",
+                            body: "We are interested in your June package.",
+                            sent_at: "2025-01-01T00:00:00.000Z",
+                          },
+                        ],
+                        error: null,
+                      }),
+                  }),
+                }),
+              }),
+            }),
+          };
+        }
+        return {};
+      },
+    } as never;
+
+    const raw = await executeOperatorReadOnlyLookupTool(
+      supabase,
+      "p1",
+      minimalCtx(),
+      "operator_lookup_thread_messages",
+      JSON.stringify({ threadId: tid }),
+    );
+    const j = JSON.parse(raw) as {
+      tool: string;
+      result: { messages: Array<{ bodyExcerpt: string; direction: string }>; messageCount: number };
+    };
+    expect(j.tool).toBe("operator_lookup_thread_messages");
+    expect(j.result.messageCount).toBe(1);
+    expect(j.result.messages[0]!.direction).toBe("in");
+    expect(j.result.messages[0]!.bodyExcerpt).toContain("June package");
   });
 
   it("returns error payload for unknown tool name", async () => {

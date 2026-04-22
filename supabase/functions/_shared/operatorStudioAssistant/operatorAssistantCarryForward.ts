@@ -76,6 +76,7 @@ const DOMAIN_BY_TOOL: Record<string, OperatorAnaCarryForwardDomain> = {
   operator_lookup_projects: "projects",
   operator_lookup_project_details: "projects",
   operator_lookup_threads: "threads",
+  operator_lookup_thread_messages: "threads",
   operator_lookup_inquiry_counts: "inquiry_counts",
 };
 
@@ -220,7 +221,12 @@ export function inferLlmHandlerUsingPointerHeuristic(
       }
     }
   }
-  if (!hadResolver && toolOutcomes.some((t) => t.ok && t.name === "operator_lookup_threads")) {
+  if (
+    !hadResolver &&
+    toolOutcomes.some(
+      (t) => t.ok && (t.name === "operator_lookup_threads" || t.name === "operator_lookup_thread_messages"),
+    )
+  ) {
     const hasPointerIds = !!(
       carryForward.lastFocusedProjectId || carryForward.lastMentionedPersonId || carryForward.lastThreadId
     );
@@ -415,6 +421,15 @@ function mergeToolIntoData(
     }
   }
 
+  if (toolName === "operator_lookup_thread_messages" && toolJson.result) {
+    const r = toolJson.result as Record<string, unknown>;
+    const tid = r.threadId;
+    if (typeof tid === "string" && isLikelyUuid(tid)) {
+      next.lastThreadId = tid;
+    }
+    next.lastEntityAmbiguous = false;
+  }
+
   return next;
 }
 
@@ -475,6 +490,19 @@ function mergeContextOnlySignals(
       out.lastThreadId = ctx.operatorThreadMessageLookup.threads[0]!.threadId;
     }
     if (out.lastThreadId && out.lastDomain === "none") {
+      out.lastDomain = "threads";
+    }
+  }
+
+  if (
+    ctx.operatorThreadMessageBodies.didRun &&
+    ctx.operatorThreadMessageBodies.threadId &&
+    ctx.operatorThreadMessageBodies.messages.length > 0
+  ) {
+    if (out.lastThreadId == null) {
+      out.lastThreadId = ctx.operatorThreadMessageBodies.threadId;
+    }
+    if (out.lastDomain === "none") {
       out.lastDomain = "threads";
     }
   }

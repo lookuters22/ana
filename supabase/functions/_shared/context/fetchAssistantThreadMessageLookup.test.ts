@@ -139,6 +139,64 @@ describe("fetchAssistantThreadMessageLookup", () => {
     expect(r.selectionNote).toMatch(/title|inbox_scored/);
   });
 
+  it("open inbox lookup ranks skincare thread above generic career/student subject when query is fuzzy (no sender)", async () => {
+    const inboxSkincare = {
+      id: "th-skincare",
+      title: "Brand shoot inquiry for skincare campaign",
+      wedding_id: null,
+      last_activity_at: "2026-04-22T14:00:00.000Z",
+      kind: "client",
+      latest_sender: "brand@example.com",
+      latest_body: "We need a photographer for our skincare launch shoot.",
+    };
+    const inboxCareer = {
+      id: "th-career",
+      title: "Quick question regarding your career / student project",
+      wedding_id: null,
+      last_activity_at: "2026-04-22T15:30:00.000Z",
+      kind: "client",
+      latest_sender: "student@school.test",
+      latest_body: "I had a question about my application.",
+    };
+    const hydrateSkincare = {
+      id: "th-skincare",
+      title: "Brand shoot inquiry for skincare campaign",
+      wedding_id: null,
+      channel: "email",
+      kind: "client",
+      last_activity_at: "2026-04-22T14:00:00.000Z",
+      last_inbound_at: "2026-04-22T13:00:00.000Z",
+      last_outbound_at: null,
+    };
+    const hydrateCareer = {
+      id: "th-career",
+      title: "Quick question regarding your career / student project",
+      wedding_id: null,
+      channel: "email",
+      kind: "client",
+      last_activity_at: "2026-04-22T15:30:00.000Z",
+      last_inbound_at: "2026-04-22T15:00:00.000Z",
+      last_outbound_at: null,
+    };
+    const s = makeSupabase({
+      threadRows: [],
+      threadHydrateRows: [hydrateSkincare, hydrateCareer],
+      participantRows: [],
+      viewRows: [inboxCareer, inboxSkincare],
+    });
+    const r = await fetchAssistantThreadMessageLookup(s, "p1", {
+      queryText:
+        "i received a phone call from somebody today regarding a skincare shoot, did they maybe send an email too?",
+      weddingIdEffective: null,
+      personIdEffective: null,
+      operatorQueryEntityResolution: emptyEntity,
+      now: new Date("2026-04-22T16:00:00.000Z"),
+    });
+    expect(r.didRun).toBe(true);
+    expect(r.threads[0]!.threadId).toBe("th-skincare");
+    expect(r.selectionNote).toMatch(/inbox_scored/);
+  });
+
   it("inbox scoring ranks sender + topic match (skincare / Miki-style)", async () => {
     const inboxThread = {
       id: "th-skincare",

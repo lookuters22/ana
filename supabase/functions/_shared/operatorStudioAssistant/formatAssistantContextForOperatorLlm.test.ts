@@ -7,30 +7,25 @@ import type {
 import { getAssistantAppCatalogForContext } from "../../../../src/lib/operatorAssistantAppCatalog.ts";
 import { shouldIncludeAppCatalogInOperatorPrompt } from "../../../../src/lib/operatorAssistantAppHelpIntent.ts";
 import { formatAssistantContextForOperatorLlm } from "./formatAssistantContextForOperatorLlm.ts";
+import {
+  IDLE_ASSISTANT_THREAD_MESSAGE_BODIES,
+} from "../context/fetchAssistantThreadMessageBodies.ts";
 import { IDLE_ASSISTANT_THREAD_MESSAGE_LOOKUP } from "../context/fetchAssistantThreadMessageLookup.ts";
 import { IDLE_ASSISTANT_INQUIRY_COUNT_SNAPSHOT } from "../context/fetchAssistantInquiryCountSnapshot.ts";
 import { IDLE_ASSISTANT_CALENDAR_SNAPSHOT } from "../context/fetchAssistantOperatorCalendarSnapshot.ts";
+import {
+  deriveOperatorQueueHighlights,
+  IDLE_ASSISTANT_OPERATOR_STATE_SUMMARY,
+} from "../context/fetchAssistantOperatorStateSummary.ts";
 import { deriveAssistantPlaybookCoverageSummary } from "../../../../src/lib/deriveAssistantPlaybookCoverageSummary.ts";
+import { IDLE_OPERATOR_ANA_TRIAGE } from "../../../../src/lib/operatorAnaTriage.ts";
 import { IDLE_OPERATOR_QUERY_ENTITY_RESOLUTION } from "../context/resolveOperatorQueryEntitiesFromIndex.ts";
 import type { EffectivePlaybookRule } from "../../../../src/types/decisionContext.types.ts";
 
 const EMPTY_STATE: AssistantOperatorStateSummary = {
+  ...IDLE_ASSISTANT_OPERATOR_STATE_SUMMARY,
   fetchedAt: "2020-01-01T00:00:00.000Z",
   sourcesNote: "",
-  counts: {
-    pendingApprovalDrafts: 0,
-    openTasks: 0,
-    openEscalations: 0,
-    linkedOpenLeads: 0,
-    unlinked: { inquiry: 0, needsFiling: 0, operatorReview: 0, suppressed: 0 },
-    zenTabs: { review: 0, drafts: 0, leads: 0, needs_filing: 0 },
-  },
-  samples: {
-    pendingDrafts: [],
-    openEscalations: [],
-    openTasks: [],
-    topActions: [],
-  },
 };
 
 function minimalCtx(overrides: Partial<AssistantContext> = {}): AssistantContext {
@@ -72,8 +67,10 @@ function minimalCtx(overrides: Partial<AssistantContext> = {}): AssistantContext
     },
     operatorQueryEntityResolution: IDLE_OPERATOR_QUERY_ENTITY_RESOLUTION,
     operatorThreadMessageLookup: IDLE_ASSISTANT_THREAD_MESSAGE_LOOKUP,
+    operatorThreadMessageBodies: IDLE_ASSISTANT_THREAD_MESSAGE_BODIES,
     operatorInquiryCountSnapshot: IDLE_ASSISTANT_INQUIRY_COUNT_SNAPSHOT,
     operatorCalendarSnapshot: IDLE_ASSISTANT_CALENDAR_SNAPSHOT,
+    operatorTriage: IDLE_OPERATOR_ANA_TRIAGE,
     ...overrides,
   };
   const cov = deriveAssistantPlaybookCoverageSummary(merged.playbookRules);
@@ -83,6 +80,8 @@ function minimalCtx(overrides: Partial<AssistantContext> = {}): AssistantContext
       overrides.includeAppCatalogInOperatorPrompt ?? shouldIncludeAppCatalogInOperatorPrompt(merged.queryText),
     operatorThreadMessageLookup:
       merged.operatorThreadMessageLookup ?? IDLE_ASSISTANT_THREAD_MESSAGE_LOOKUP,
+    operatorThreadMessageBodies:
+      merged.operatorThreadMessageBodies ?? IDLE_ASSISTANT_THREAD_MESSAGE_BODIES,
     operatorInquiryCountSnapshot:
       merged.operatorInquiryCountSnapshot ?? IDLE_ASSISTANT_INQUIRY_COUNT_SNAPSHOT,
     operatorCalendarSnapshot: merged.operatorCalendarSnapshot ?? IDLE_ASSISTANT_CALENDAR_SNAPSHOT,
@@ -105,6 +104,9 @@ describe("formatAssistantContextForOperatorLlm", () => {
     expect(s).not.toContain("## Recent thread & email activity");
     expect(s).not.toContain("## Inquiry counts / comparisons");
     expect(s).toContain("## Operator question");
+    expect(s).toContain("## Triage (v1 hint — not a gate)");
+    expect(s).toContain('"primary":"unclear"');
+    expect(s).toContain('"secondary":[]');
     expect(s).toContain("Q?");
     expect(s).toContain("## App help / navigation");
     expect(s).toContain("Full in-repo app catalog **not** included");
@@ -162,6 +164,7 @@ describe("formatAssistantContextForOperatorLlm", () => {
           fetchedAt: "2020-01-01T00:00:00.000Z",
           window: { monthsBack: 24, cutoffDateIso: "2018-01-01" },
           projectCount: 2,
+          evidenceNotes: ["Rolling window: 24 months — fixture.", "Projects in window: **2**."],
           stageDistribution: { booked: 2 },
           byStage: [{ stage: "booked", count: 2 }],
           projectTypeMix: [{ project_type: "wedding", count: 2 }],
@@ -184,9 +187,47 @@ describe("formatAssistantContextForOperatorLlm", () => {
     const e = s.indexOf("## Effective scope");
     expect(a).toBeGreaterThan(q);
     expect(e).toBeLessThan(a);
+    expect(s).toContain("### Grounding (read before JSON)");
+    expect(s).toContain("Rolling window: 24 months — fixture.");
     expect(s).toContain('"projectCount":2');
     expect(s).toContain('"studioAnalysisInPrompt":true');
     expect(s).toContain('"studioAnalysisProjectCount":2');
+  });
+
+  it("Slice 12 hardening: studio_analysis triage lifts snapshot before operator state", () => {
+    const snap = {
+      fetchedAt: "2020-01-01T00:00:00.000Z",
+      window: { monthsBack: 24, cutoffDateIso: "2018-01-01" },
+      projectCount: 2,
+      evidenceNotes: ["Test grounding line."],
+      stageDistribution: { booked: 2 },
+      byStage: [{ stage: "booked", count: 2 }],
+      projectTypeMix: [{ project_type: "wedding", count: 2 }],
+      packageMixBooked: [],
+      contractStats: null,
+      balanceStats: null,
+      openTasksCount: 0,
+      openEscalationsCount: 0,
+      locationCoverage: { withLocationCount: 0, total: 2, note: "n" },
+      rowSamples: [],
+    };
+    const s = formatAssistantContextForOperatorLlm(
+      minimalCtx({
+        queryText: "What does the data say?",
+        operatorTriage: { primary: "studio_analysis", secondary: [], reason: "test" },
+        studioAnalysisSnapshot: snap,
+        retrievalLog: {
+          ...minimalCtx().retrievalLog,
+          studioAnalysisProjectCount: 2,
+        },
+      }),
+    );
+    const early = s.indexOf("## Studio analysis snapshot (read-only — prioritize for this question)");
+    const state = s.indexOf("## Operator state (Today / Inbox — read-only snapshot)");
+    expect(early).toBeGreaterThan(-1);
+    expect(state).toBeGreaterThan(early);
+    expect(s).not.toContain("## Studio analysis snapshot (from this studio’s data)");
+    expect(s).toContain("Test grounding line.");
   });
 
   it("Slice 9: includes Open-Meteo weather block when options.weatherToolMarkdown is a non-empty string", () => {
@@ -210,6 +251,16 @@ describe("formatAssistantContextForOperatorLlm", () => {
     expect(s).toContain('"APP_ROUTES"');
     expect(s).toContain("Ana routing");
     expect(s).toContain('"appCatalogInPrompt":true');
+    expect(s).toContain("**Grounding contract:**");
+    expect(s).toContain("APP_PROCEDURAL_WORKFLOWS");
+  });
+
+  it("when catalog is omitted, tells the model not to invent UI walkthroughs", () => {
+    const s = formatAssistantContextForOperatorLlm(minimalCtx({ queryText: "What’s urgent?" }));
+    expect(s).toContain("## App help / navigation");
+    expect(s).toMatch(/\*\*not\*\* included/);
+    expect(s).toMatch(/do not.*step-by-step|step-by-step UI/i);
+    expect(s).toContain('"appCatalogInPrompt":false');
   });
 
   it("includes read-only calendar block when operatorCalendarSnapshot didRun", () => {
@@ -256,6 +307,7 @@ describe("formatAssistantContextForOperatorLlm", () => {
       }),
     );
     expect(s).toContain("## Calendar lookup (read-only");
+    expect(s).toContain("**Evidence contract:**");
     expect(s).toContain("**Lookup mode:** `upcoming`");
     expect(s).toContain("Timeline chat");
     expect(s).toContain("calendarSnapshot");
@@ -320,18 +372,37 @@ describe("formatAssistantContextForOperatorLlm", () => {
     expect(ac.serializedUtf8Bytes).toBe(new TextEncoder().encode(ac.catalogJson).length);
   });
 
+  it("renders triage primary and secondary without reason field", () => {
+    const s = formatAssistantContextForOperatorLlm(
+      minimalCtx({
+        operatorTriage: {
+          primary: "project_crm",
+          secondary: ["inbox_threads"],
+          reason: "telemetry_only",
+        },
+      }),
+    );
+    expect(s).toContain("## Triage (v1 hint — not a gate)");
+    expect(s).toContain('{"primary":"project_crm","secondary":["inbox_threads"]}');
+    expect(s).not.toContain("telemetry_only");
+    expect(s).not.toContain('"reason"');
+  });
+
   it("surfaces state counts and samples for what’s waiting / urgent style questions", () => {
+    const base = minimalCtx({ queryText: "What’s urgent?" });
+    const counts = {
+      ...EMPTY_STATE.counts,
+      openEscalations: 2,
+      pendingApprovalDrafts: 1,
+      zenTabs: { review: 3, drafts: 1, leads: 2, needs_filing: 0 },
+    };
     const s = formatAssistantContextForOperatorLlm({
-      ...minimalCtx(),
-      queryText: "What’s urgent?",
+      ...base,
+      retrievalLog: { ...base.retrievalLog, operatorQueueIntentMatched: true },
       operatorStateSummary: {
         ...EMPTY_STATE,
-        counts: {
-          ...EMPTY_STATE.counts,
-          openEscalations: 2,
-          pendingApprovalDrafts: 1,
-          zenTabs: { review: 3, drafts: 1, leads: 2, needs_filing: 0 },
-        },
+        counts,
+        queueHighlights: deriveOperatorQueueHighlights(counts),
         samples: {
           ...EMPTY_STATE.samples,
           topActions: [
@@ -340,10 +411,48 @@ describe("formatAssistantContextForOperatorLlm", () => {
         },
       },
     });
+    expect(s).toContain("## Operator queue / Today snapshot");
+    expect(s).toContain("### Snapshot-derived priorities");
     expect(s).toContain("**Open escalations:** 2");
     expect(s).toContain("**Zen tabs");
     expect(s).toContain("[Escalation]");
     expect(s).toContain("Policy question");
+    expect(s).not.toContain("## Operator state (Today / Inbox — read-only snapshot)");
+  });
+
+  it("non-queue questions keep a single Operator state section in the standard position", () => {
+    const s = formatAssistantContextForOperatorLlm(minimalCtx({ queryText: "Hello" }));
+    expect(s).toContain("## Operator state (Today / Inbox — read-only snapshot)");
+    expect(s).not.toContain("## Operator queue / Today snapshot");
+    expect(s).toContain("### Snapshot-derived priorities");
+  });
+
+  it("queue-style inbox wording does not force thread block ahead of operator state", () => {
+    const base = minimalCtx({ queryText: "What's waiting in my inbox?" });
+    const s = formatAssistantContextForOperatorLlm({
+      ...base,
+      retrievalLog: { ...base.retrievalLog, operatorQueueIntentMatched: true },
+      operatorThreadMessageLookup: {
+        didRun: true,
+        selectionNote: "inbox_scored",
+        threads: [
+          {
+            threadId: "t1",
+            title: "X",
+            weddingId: null,
+            channel: "email",
+            kind: "client",
+            lastActivityAt: "2025-01-01T00:00:00.000Z",
+            lastInboundAt: "2025-01-01T00:00:00.000Z",
+            lastOutboundAt: null,
+          },
+        ],
+      },
+    });
+    const queueIdx = s.indexOf("## Operator queue / Today snapshot");
+    const threadIdx = s.indexOf("## Recent thread & email activity");
+    expect(queueIdx).toBeGreaterThanOrEqual(0);
+    expect(threadIdx).toBeGreaterThan(queueIdx);
   });
 
   it("includes Recent thread & email activity when operatorThreadMessageLookup.didRun", () => {
@@ -379,6 +488,50 @@ describe("formatAssistantContextForOperatorLlm", () => {
     expect(s).toContain("last outbound");
     expect(s).toContain("`t1`");
     expect(s).toContain('"threadMessageLookup"');
+  });
+
+  it("includes Thread message excerpts when bounded bodies snapshot has messages", () => {
+    const s = formatAssistantContextForOperatorLlm(
+      minimalCtx({
+        queryText: "What did they say in the email?",
+        operatorThreadMessageLookup: {
+          didRun: true,
+          selectionNote: "single",
+          threads: [
+            {
+              threadId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+              title: "Re: Pricing",
+              weddingId: null,
+              channel: "email",
+              kind: "client",
+              lastActivityAt: "2025-01-02T00:00:00.000Z",
+              lastInboundAt: "2025-01-02T00:00:00.000Z",
+              lastOutboundAt: null,
+            },
+          ],
+        },
+        operatorThreadMessageBodies: {
+          didRun: true,
+          selectionNote: "messages_loaded",
+          threadId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          threadTitle: "Re: Pricing",
+          truncatedOverall: false,
+          messages: [
+            {
+              messageId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+              direction: "in",
+              sender: "client@example.com",
+              sentAt: "2025-01-02T00:00:00.000Z",
+              bodyExcerpt: "We would love to book June 14.",
+              bodyClipped: false,
+            },
+          ],
+        },
+      }),
+    );
+    expect(s).toContain("### Thread message excerpts");
+    expect(s).toContain("We would love to book June 14.");
+    expect(s).toMatch(/Envelope block|bounded message excerpts/i);
   });
 
   it("places Recent thread block before Matched entities for commercial inbound + inbox_scored", () => {

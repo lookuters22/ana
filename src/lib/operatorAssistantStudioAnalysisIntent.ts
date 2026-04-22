@@ -10,8 +10,18 @@ export function shouldLoadStudioAnalysisSnapshotForQuery(queryText: string): boo
   if (/^(hi|hello|hey|thanks|thank you|ok|okay)[\s!.?]*$/i.test(t)) return false;
 
   const patterns: RegExp[] = [
+    /\bwhat\s+does\s+the\s+data\s+say\b/,
+    /\bwhat\s+do\s+the\s+(data|numbers)\s+say\b/,
+    /\bhow\s+are\s+my\s+inquir(y|ies)\s+convert/i,
+    /\binquir(y|ies)\s+(are\s+)?convert/i,
+    /\bwhat\s+am\s+i\s+charging\s+most\s+often\b/,
+    /\bmost\s+(common|frequent|booked)\s+package\b/,
+    /\bwhat\s+patterns?\s+do\s+you\s+see\b[^?.!]{0,120}\b(bookings?|projects?|pipeline|studio|data|crm)\b/,
+    /\bpatterns?\s+in\s+my\s+(bookings?|projects?|pipeline)\b/,
+    /\bsummary\s+of\s+(my\s+)?(bookings?|pipeline|revenue|studio)\b/i,
     /\b(should|ought)\b[^?.!]{0,80}\b(prices?|pricing|rates?|fees?|packages?|charging)\b/,
-    /\b(are|am|is)\s+we\b[^?.!]{0,80}\b(undercharging|overcharging|under-?chargin\w*|over-?chargin\w*|charging enough|competitive|too high|too low)\b/,
+    // Studio pricing vs CRM data: "we" / "I" / "my …" phrasing — still requires studio-price vocabulary below; not generic finance.
+    /\b(?:(are|am|is)\s+we|am\s+i|is\s+my|are\s+my)\b[^?.!]{0,80}\b(undercharging|overcharging|under-?chargin\w*|over-?chargin\w*|charging enough|competitive|too high|too low)\b/,
     /\b(raise|lower|increase|decrease|cut)\b[^?.!]{0,40}\b(prices?|pricing|rates?|fees?|packages?|our rates?)\b/,
     /\bwhich\s+package|package(?:es)?\s+that|packages?\s+convert|conversion|convert(?:s|ed)?\s+best|funnel|pipeline (stats|mix|stages?)|by stage|stage distribution|stage mix\b/,
     /\b(average|median|typical|mean)\b[^?.!]{0,60}\b(contract|revenue|fee|pric|balance|booking)\b/,

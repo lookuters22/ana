@@ -129,4 +129,33 @@ describe("buildOperatorCalendarLookupPlan", () => {
     expect(plan.lookupMode).toBe("upcoming");
     expect(plan.orderAscending).toBe(true);
   });
+
+  it("exact day: ISO yyyy-mm-dd in query wins a single UTC day window", () => {
+    const plan = buildOperatorCalendarLookupPlan({
+      queryText: "What is on my calendar 2026-06-14?",
+      now: ref,
+      focusedWeddingId: null,
+      entityResolution: emptyEntity,
+      weddingIndexRows: [],
+    });
+    expect(plan.lookupMode).toBe("exact_day");
+    expect(plan.windowStartIso).toBe("2026-06-14T00:00:00.000Z");
+    expect(plan.windowEndIso).toBe("2026-06-15T00:00:00.000Z");
+    expect(plan.lookupBasis).toMatch(/ISO date/i);
+  });
+
+  it("this weekend uses Saturday–Sunday UTC window from the snapshot date", () => {
+    const plan = buildOperatorCalendarLookupPlan({
+      queryText: "What's on my calendar this weekend?",
+      now: ref,
+      focusedWeddingId: null,
+      entityResolution: emptyEntity,
+      weddingIndexRows: [],
+    });
+    expect(plan.lookupMode).toBe("date_range");
+    expect(plan.windowLabel).toMatch(/this weekend/i);
+    expect(plan.windowLabel).toMatch(/Sat/i);
+    expect(plan.windowStartIso).toBe("2026-04-25T00:00:00.000Z");
+    expect(plan.windowEndIso).toBe("2026-04-27T00:00:00.000Z");
+  });
 });

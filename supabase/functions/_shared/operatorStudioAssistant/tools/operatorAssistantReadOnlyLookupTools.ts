@@ -9,6 +9,9 @@ import {
   resolveOperatorQueryEntitiesFromIndex,
   shouldRunOperatorQueryEntityResolution,
 } from "../../context/resolveOperatorQueryEntitiesFromIndex.ts";
+import {
+  fetchAssistantThreadMessageBodies,
+} from "../../context/fetchAssistantThreadMessageBodies.ts";
 import { fetchAssistantThreadMessageLookup } from "../../context/fetchAssistantThreadMessageLookup.ts";
 import { fetchAssistantInquiryCountSnapshot } from "../../context/fetchAssistantInquiryCountSnapshot.ts";
 import {
@@ -120,7 +123,7 @@ export const OPERATOR_READ_ONLY_LOOKUP_TOOLS = [
     function: {
       name: "operator_lookup_threads",
       description:
-        "Fetch a bounded list of recent threads with last inbound/outbound activity timestamps (no message bodies). Resolves people/projects from the query using the same index as first pass, and respects the operator’s focused wedding/person from context when relevant. Use when thread/email activity is missing from Context and the question is about who emailed, last contact, or a named inquiry/thread.",
+        "Fetch a bounded list of recent threads with last inbound/outbound activity timestamps (**no** message bodies in this tool). Resolves people/projects from the query using the same index as first pass, and respects the operator’s focused wedding/person from context when relevant. Use when thread/email activity is missing from Context and the question is about who emailed, last contact, or a named inquiry/thread. For **what the email says**, follow with **operator_lookup_thread_messages** using a **threadId** from the result.",
       parameters: {
         type: "object",
         properties: {
@@ -131,6 +134,25 @@ export const OPERATOR_READ_ONLY_LOOKUP_TOOLS = [
           },
         },
         required: ["query"],
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "operator_lookup_thread_messages",
+      description:
+        "Read-only: load **bounded recent message bodies** for **one** thread (**threads.id** UUID). Returns up to **8** most recent messages (chronological in the payload), each **body** excerpt capped at **900** characters — tenant-scoped, not guaranteed full thread history. Use when the operator asks what an email/thread **says** / **what they want** and excerpts are **not** already in the Context block. **threadId** must come from **Recent thread & email activity** or **operator_lookup_threads** — never guess.",
+      parameters: {
+        type: "object",
+        properties: {
+          threadId: {
+            type: "string",
+            description: "Required. The threads.id UUID (this tenant).",
+          },
+        },
+        required: ["threadId"],
+        additionalProperties: false,
       },
     },
   },
@@ -189,7 +211,7 @@ function slimThreadLookupPayload(
     didRun: lookup.didRun,
     selectionNote: lookup.selectionNote,
     threads: lookup.threads,
-    note: "No message bodies; capped thread list.",
+    note: "No message bodies in this tool; use operator_lookup_thread_messages with a threadId for bounded body excerpts.",
   };
 }
 
@@ -310,6 +332,36 @@ export async function executeOperatorReadOnlyLookupTool(
       force: true,
     });
     return JSON.stringify({ tool: name, query, result: slimThreadLookupPayload(lookup) });
+  }
+
+  if (name === "operator_lookup_thread_messages") {
+    const extraKeys = Object.keys(args).filter(
+      (k) => k !== "threadId" && args[k] !== undefined && args[k] !== null,
+    );
+    if (extraKeys.length > 0) {
+      return JSON.stringify({
+        tool: name,
+        error: "invalid_arguments",
+        code: "extra_properties",
+        onlyAllowed: ["threadId"],
+        disallowed: extraKeys,
+      });
+    }
+    const snap = await fetchAssistantThreadMessageBodies(supabase, photographerId, args.threadId);
+    return JSON.stringify({
+      tool: name,
+      result: {
+        didRun: snap.didRun,
+        selectionNote: snap.selectionNote,
+        threadId: snap.threadId,
+        threadTitle: snap.threadTitle,
+        messageCount: snap.messages.length,
+        truncatedOverall: snap.truncatedOverall,
+        semanticsNote:
+          "Read-only tenant messages for one thread; newest-first fetch reversed to chronological; not full history beyond the cap.",
+        messages: snap.messages,
+      },
+    });
   }
 
   return JSON.stringify({ error: "unknown_tool", name });

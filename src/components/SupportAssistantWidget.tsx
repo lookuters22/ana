@@ -842,8 +842,13 @@ export function SupportAssistantWidget() {
                                     Due {p.dueDate}
                                     {p.weddingId ? ` · wedding ${p.weddingId}` : ""}
                                   </p>
+                                  <p className="mt-1 font-['Saans',ui-sans-serif] text-[9px] leading-snug text-white/50">
+                                    Not saved until you confirm — adds an open task you can reschedule or complete from Tasks.
+                                  </p>
                                   {consumed && (
-                                    <p className="mt-1.5 font-['Saans',ui-sans-serif] text-[10px] text-emerald-200/90">Task created.</p>
+                                    <p className="mt-1.5 font-['Saans',ui-sans-serif] text-[10px] text-emerald-200/90">
+                                      Task created — open it from your task list to adjust or mark done.
+                                    </p>
                                   )}
                                   <button
                                     type="button"
@@ -851,7 +856,7 @@ export function SupportAssistantWidget() {
                                     onClick={() => void confirmTaskProposal(m.id, p)}
                                     className="mt-2 rounded border border-sky-400/40 bg-sky-500/20 px-2 py-1 font-['Saans',ui-sans-serif] text-[10px] text-sky-100 hover:bg-sky-500/30 disabled:cursor-not-allowed disabled:opacity-50"
                                   >
-                                    {consumed ? "Created" : busy ? "Creating…" : "Create task"}
+                                    {consumed ? "Created" : busy ? "Creating…" : "Create task (confirm)"}
                                   </button>
                                 </li>
                               );

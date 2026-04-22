@@ -15,6 +15,71 @@ const POST_BOOKED_STAGES = new Set([
   "delivered",
 ]);
 
+/** Pipeline stages before a signed booking (CRM semantics — aligns with PipelineContextList). */
+const OPEN_PIPELINE_STAGES = new Set(["inquiry", "consultation", "proposal_sent", "contract_out"]);
+
+function sumStages(dist: Record<string, number>, stages: Set<string>): number {
+  let n = 0;
+  for (const s of stages) {
+    n += dist[s] ?? 0;
+  }
+  return n;
+}
+
+function buildStudioAnalysisEvidenceNotes(input: {
+  windowRowsLength: number;
+  rawFetchLength: number;
+  maxFetch: number;
+  monthsBack: number;
+  cutoffIso: string;
+  stageDistribution: Record<string, number>;
+  contractStats: { count: number } | null;
+}): string[] {
+  const notes: string[] = [];
+  notes.push(
+    `Rolling window: ${input.monthsBack} months from cutoff **${input.cutoffIso}** (UTC calendar). Up to **${input.maxFetch}** \`weddings\` rows fetched (ordered by \`wedding_date\` desc, nulls last); rows with **no** event date are kept in-window. Older CRM rows may exist outside this batch.`,
+  );
+
+  const n = input.windowRowsLength;
+  const conf =
+    n <= 5
+      ? "**Very small** sample — cite counts only; do not imply strong trends, rankings, or “best” packages."
+      : n <= 15
+        ? "**Small** sample — segment splits are **indicative only**; avoid statistical language."
+        : n <= 40
+          ? "**Moderate** sample — still no significance claims; stay descriptive."
+          : "**Larger** window count — still **this snapshot only**, not guaranteed all-time CRM.";
+  notes.push(`Projects in window: **${n}**. ${conf}`);
+
+  const openPipe = sumStages(input.stageDistribution, OPEN_PIPELINE_STAGES);
+  const bookedPath = sumStages(input.stageDistribution, POST_BOOKED_STAGES);
+  notes.push(
+    `Approximate stage buckets (read \`stageDistribution\` for full breakdown): open pipeline **inquiry|consultation|proposal_sent|contract_out** ≈ **${openPipe}**; post-book path **booked|prep|final_balance|delivered** ≈ **${bookedPath}**. Do **not** present a “conversion rate” unless you state it as a **simple ratio of these two counts** and label it **rough**, not cohort-accurate.`,
+  );
+
+  notes.push(
+    `\`packageMixBooked\` and package averages use **only** rows in stages **${[...POST_BOOKED_STAGES].join(", ")}** — not inquiry-stage quotes.`,
+  );
+
+  if (input.contractStats == null) {
+    notes.push(
+      "No **contract_value** summary: no non-null numeric values on post-booked rows in this window — **do not** invent averages or medians.",
+    );
+  } else {
+    notes.push(
+      `Contract min/max/avg use **${input.contractStats.count}** post-booked row(s) with non-null \`contract_value\`.`,
+    );
+  }
+
+  if (input.rawFetchLength >= input.maxFetch) {
+    notes.push(
+      `**Fetch cap hit** (${input.maxFetch} rows) — very old projects may be missing from this ordered slice.`,
+    );
+  }
+
+  return notes;
+}
+
 type WeddingRow = {
   id: string;
   couple_names: string;
@@ -170,10 +235,21 @@ export async function fetchAssistantStudioAnalysisSnapshot(
     location: (r.location ?? "").trim() ? (r.location ?? "").trim() : "(empty)",
   }));
 
+  const evidenceNotes = buildStudioAnalysisEvidenceNotes({
+    windowRowsLength: windowRows.length,
+    rawFetchLength: rows.length,
+    maxFetch: MAX_FETCH,
+    monthsBack: MONTHS_LOOKBACK,
+    cutoffIso,
+    stageDistribution,
+    contractStats: contractStats != null ? { count: contractStats.count } : null,
+  });
+
   return {
     fetchedAt: now.toISOString(),
     window: { monthsBack: MONTHS_LOOKBACK, cutoffDateIso: cutoffIso },
     projectCount: windowRows.length,
+    evidenceNotes,
     stageDistribution,
     byStage,
     projectTypeMix,

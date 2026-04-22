@@ -22,7 +22,8 @@ const IDLE: AssistantOperatorCalendarSnapshot = {
   truncated: false,
   timeZoneNote:
     "Event times are stored as timestamptz; listed in ISO 8601 (UTC in suffix). The UI may show local time — do not convert unless the operator asks in a local frame.",
-  semanticsNote: "Not run — only loaded for calendar / scheduling content questions (see hasOperatorCalendarScheduleIntent).",
+  semanticsNote:
+    "Not run — only loaded for calendar / scheduling content questions (see hasOperatorCalendarScheduleIntent). When run, rows are DB `calendar_events` only (no Google Calendar / tasks).",
   weddingFilter: null,
   titleContains: null,
   eventTypeFilter: null,
@@ -147,7 +148,7 @@ export async function fetchAssistantOperatorCalendarSnapshot(
   }
 
   const semanticsNote =
-    "Read-only `calendar_events` rows for this tenant (no Google Calendar writes in this path). Tasks are not calendar events.";
+    "Read-only `calendar_events` rows for this tenant (no Google Calendar sync or writes in this path). Tasks are not calendar events. Only rows matching the time window and filters below are included — unlisted holds, personal blocks, or external calendars are not represented.";
 
   return {
     didRun: true,

@@ -192,6 +192,28 @@ function utcMondayStart(d: Date): Date {
   return x;
 }
 
+/** Saturday 00:00 UTC … Monday 00:00 UTC (exclusive end) for the weekend containing `now`, or the next Sat–Sun if `now` is Mon–Fri. */
+function weekendRangeThisUtc(now: Date): { start: Date; end: Date } {
+  const d = startOfUtcDay(now);
+  const dow = d.getUTCDay();
+  let sat: Date;
+  if (dow === 6) {
+    sat = d;
+  } else if (dow === 0) {
+    sat = addUtcDays(d, -1);
+  } else {
+    sat = addUtcDays(d, (6 - dow + 7) % 7);
+  }
+  return { start: sat, end: addUtcDays(sat, 2) };
+}
+
+/** The Sat–Sun UTC window immediately after `weekendRangeThisUtc`. */
+function weekendRangeNextUtc(now: Date): { start: Date; end: Date } {
+  const { start: thisSat } = weekendRangeThisUtc(now);
+  const nextSat = addUtcDays(thisSat, 7);
+  return { start: nextSat, end: addUtcDays(nextSat, 2) };
+}
+
 function resolveLastWeekday(dow: number, now: Date): Date {
   const x = startOfUtcDay(now);
   let guard = 0;
@@ -298,6 +320,8 @@ function wantsConsultFilter(q: string): boolean {
 /** True when the query names a weekday, calendar month, day-of-month, or relative week — avoid full project-span. */
 function hasNarrowTimeToken(q: string): boolean {
   const ql = q.toLowerCase();
+  if (/\b20\d{2}-\d{1,2}-\d{1,2}\b/.test(ql)) return true;
+  if (/\b(this|next)\s+weekend\b|\bweekend\b/.test(ql)) return true;
   if (/\b(today|tomorrow|yesterday|this week|next week|last week|that week)\b/.test(ql)) return true;
   if (
     /\b(last|next|previous)\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|tues|wed|thu|thurs|fri|sat|sun)\b/.test(
@@ -404,6 +428,46 @@ export function buildOperatorCalendarLookupPlan(input: BuildOperatorCalendarLook
       windowEndIso: toIso(end),
       windowLabel: `forward ${OPERATOR_ASSISTANT_CALENDAR_FORWARD_CAP_DAYS}d from snapshot (UTC)`,
       windowDays: 0,
+      weddingId,
+      coupleNamesForFilter,
+      titleContains,
+      eventTypes,
+      orderAscending: true,
+    };
+  }
+
+  // —— Weekend (Sat–Sun UTC) ——
+  if (/\bnext weekend\b/.test(ql)) {
+    const { start, end } = weekendRangeNextUtc(now);
+    const basis =
+      (basisParts.length > 0 ? basisParts.join(" ") + " " : "") +
+      "Next weekend — Saturday 00:00 UTC through Monday 00:00 UTC (exclusive).";
+    return {
+      lookupMode: "date_range",
+      lookupBasis: basis.trim(),
+      windowStartIso: toIso(start),
+      windowEndIso: toIso(end),
+      windowLabel: "next weekend (Sat–Sun UTC)",
+      windowDays: 2,
+      weddingId,
+      coupleNamesForFilter,
+      titleContains,
+      eventTypes,
+      orderAscending: true,
+    };
+  }
+  if (/\bthis weekend\b/.test(ql)) {
+    const { start, end } = weekendRangeThisUtc(now);
+    const basis =
+      (basisParts.length > 0 ? basisParts.join(" ") + " " : "") +
+      "This weekend — Saturday 00:00 UTC through Monday 00:00 UTC (exclusive).";
+    return {
+      lookupMode: "date_range",
+      lookupBasis: basis.trim(),
+      windowStartIso: toIso(start),
+      windowEndIso: toIso(end),
+      windowLabel: "this weekend (Sat–Sun UTC)",
+      windowDays: 2,
       weddingId,
       coupleNamesForFilter,
       titleContains,
@@ -597,6 +661,36 @@ export function buildOperatorCalendarLookupPlan(input: BuildOperatorCalendarLook
       eventTypes,
       orderAscending: true,
     };
+  }
+
+  // —— ISO calendar date (yyyy-mm-dd) ——
+  const isoM = q.match(/\b(20\d{2})-(\d{1,2})-(\d{1,2})\b/);
+  if (isoM) {
+    const y = Number(isoM[1]);
+    const mo = Number(isoM[2]);
+    const dNum = Number(isoM[3]);
+    if (mo >= 1 && mo <= 12 && dNum >= 1 && dNum <= 31) {
+      const start = startOfUtcDayFromParts(y, mo, dNum);
+      if (start.getUTCFullYear() === y && start.getUTCMonth() + 1 === mo && start.getUTCDate() === dNum) {
+        const end = addUtcDays(start, 1);
+        const basis =
+          (basisParts.length > 0 ? basisParts.join(" ") + " " : "") +
+          `Specific UTC calendar day from ISO date (${padIsoDate(y, mo, dNum)}).`;
+        return {
+          lookupMode: "exact_day",
+          lookupBasis: basis.trim(),
+          windowStartIso: toIso(start),
+          windowEndIso: toIso(end),
+          windowLabel: `UTC day ${padIsoDate(y, mo, dNum)} (ISO date in query)`,
+          windowDays: 1,
+          weddingId,
+          coupleNamesForFilter,
+          titleContains,
+          eventTypes,
+          orderAscending: true,
+        };
+      }
+    }
   }
 
   // —— Month + day ——

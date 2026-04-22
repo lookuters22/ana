@@ -18,7 +18,7 @@ export function hasOperatorCalendarScheduleIntent(queryText: string): boolean {
   if (
     /\b(did i|do i have|have i)\b/.test(s) &&
     /\b(lead|leads|inquir|inquiry|customer)\b/.test(s) &&
-    !/\b(calendar|schedule|agenda|event|appointment|meeting|booking|session|shoot|busy|free)\b/.test(s)
+    !/\b(calendar|schedule|agenda|event|appointment|meeting|booking|session|shoot|busy|free|availability)\b/.test(s)
   ) {
     return false;
   }
@@ -38,13 +38,15 @@ export function hasOperatorCalendarScheduleIntent(queryText: string): boolean {
   const hasContentQuestion = /\b(what|whats?|show|list|tell me|anything|do i have|am i|upcoming|next|when|did we|did i)\b/.test(
     s,
   );
-  const hasScheduleNoun = /\b(calendar|schedule|agenda|event|shoot|wedding|booking|appointment|meeting|busy|free|session)\b/.test(
+  const hasScheduleNoun = /\b(calendar|schedule|agenda|event|shoot|wedding|booking|appointment|meeting|busy|free|session|availability)\b/.test(
     s,
   );
   const hasTimeRef =
     /\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday|tomorrow|today|this week|next week|last week|that week|yesterday)\b/.test(
       s,
     ) ||
+    /\b(this|next)\s+weekend\b|\bweekend\b/.test(s) ||
+    /\b20\d{2}-\d{1,2}-\d{1,2}\b/.test(s) ||
     /\b(?:on|for)\b.{0,12}(?:the\s*)?(?:\d{1,2})(?:st|nd|rd|th)?\b/.test(s) ||
     /\b(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec)\b.{0,12}\b\d{1,2}(?:st|nd|rd|th)?\b/.test(
       s,

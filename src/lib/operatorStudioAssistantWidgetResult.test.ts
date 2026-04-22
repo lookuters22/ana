@@ -1,4 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi, afterEach } from "vitest";
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 import {
   OPERATOR_STUDIO_ASSISTANT_CONTRACT_VIOLATION_MESSAGE,
   buildOperatorStudioAssistantAssistantDisplay,
@@ -128,6 +132,24 @@ describe("buildOperatorStudioAssistantAssistantDisplay", () => {
       expect(d.playbookRuleProposals).toEqual([]);
       expect(d.memoryNoteProposals).toEqual([]);
       expect(d.authorizedCaseExceptionProposals).toEqual([]);
+    }
+  });
+
+  it("Slice 7+: task proposal without dueDate defaults to today UTC for the confirm card", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-02-20T00:00:00.000Z"));
+    const d = buildOperatorStudioAssistantAssistantDisplay(
+      {
+        reply: "Defaulted due date to today.",
+        clientFacingForbidden: true,
+        proposedActions: [{ kind: "task", title: "Send contract" }],
+      },
+      { devMode: false },
+    );
+    expect(d.kind).toBe("answer");
+    if (d.kind === "answer") {
+      expect(d.taskProposals).toHaveLength(1);
+      expect(d.taskProposals[0]!.dueDate).toBe("2026-02-20");
     }
   });
 

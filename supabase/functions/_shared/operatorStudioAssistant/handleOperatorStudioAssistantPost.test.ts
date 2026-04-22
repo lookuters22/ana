@@ -3,29 +3,19 @@ import type { AssistantContext, AssistantOperatorStateSummary } from "../../../.
 import type { OperatorAnaCarryForwardForLlm } from "../../../../src/types/operatorAnaCarryForward.types.ts";
 import { getAssistantAppCatalogForContext } from "../../../../src/lib/operatorAssistantAppCatalog.ts";
 import { shouldIncludeAppCatalogInOperatorPrompt } from "../../../../src/lib/operatorAssistantAppHelpIntent.ts";
+import { IDLE_ASSISTANT_THREAD_MESSAGE_BODIES } from "../context/fetchAssistantThreadMessageBodies.ts";
 import { IDLE_ASSISTANT_THREAD_MESSAGE_LOOKUP } from "../context/fetchAssistantThreadMessageLookup.ts";
 import { IDLE_ASSISTANT_INQUIRY_COUNT_SNAPSHOT } from "../context/fetchAssistantInquiryCountSnapshot.ts";
 import { IDLE_ASSISTANT_CALENDAR_SNAPSHOT } from "../context/fetchAssistantOperatorCalendarSnapshot.ts";
 import { deriveAssistantPlaybookCoverageSummary } from "../../../../src/lib/deriveAssistantPlaybookCoverageSummary.ts";
+import { IDLE_OPERATOR_ANA_TRIAGE } from "../../../../src/lib/operatorAnaTriage.ts";
 import { IDLE_OPERATOR_QUERY_ENTITY_RESOLUTION } from "../context/resolveOperatorQueryEntitiesFromIndex.ts";
+import { IDLE_ASSISTANT_OPERATOR_STATE_SUMMARY } from "../context/fetchAssistantOperatorStateSummary.ts";
 
 const EMPTY_OPERATOR_STATE: AssistantOperatorStateSummary = {
+  ...IDLE_ASSISTANT_OPERATOR_STATE_SUMMARY,
   fetchedAt: "2020-01-01T00:00:00.000Z",
   sourcesNote: "",
-  counts: {
-    pendingApprovalDrafts: 0,
-    openTasks: 0,
-    openEscalations: 0,
-    linkedOpenLeads: 0,
-    unlinked: { inquiry: 0, needsFiling: 0, operatorReview: 0, suppressed: 0 },
-    zenTabs: { review: 0, drafts: 0, leads: 0, needs_filing: 0 },
-  },
-  samples: {
-    pendingDrafts: [],
-    openEscalations: [],
-    openTasks: [],
-    topActions: [],
-  },
 };
 import {
   handleOperatorStudioAssistantPost,
@@ -85,8 +75,10 @@ function fakeCtx(overrides: Partial<AssistantContext> = {}): AssistantContext {
     },
     operatorQueryEntityResolution: IDLE_OPERATOR_QUERY_ENTITY_RESOLUTION,
     operatorThreadMessageLookup: IDLE_ASSISTANT_THREAD_MESSAGE_LOOKUP,
+    operatorThreadMessageBodies: IDLE_ASSISTANT_THREAD_MESSAGE_BODIES,
     operatorInquiryCountSnapshot: IDLE_ASSISTANT_INQUIRY_COUNT_SNAPSHOT,
     operatorCalendarSnapshot: IDLE_ASSISTANT_CALENDAR_SNAPSHOT,
+    operatorTriage: IDLE_OPERATOR_ANA_TRIAGE,
     ...overrides,
   };
   const cov = deriveAssistantPlaybookCoverageSummary(merged.playbookRules);
@@ -96,6 +88,8 @@ function fakeCtx(overrides: Partial<AssistantContext> = {}): AssistantContext {
       overrides.includeAppCatalogInOperatorPrompt ?? shouldIncludeAppCatalogInOperatorPrompt(merged.queryText),
     operatorThreadMessageLookup:
       merged.operatorThreadMessageLookup ?? IDLE_ASSISTANT_THREAD_MESSAGE_LOOKUP,
+    operatorThreadMessageBodies:
+      merged.operatorThreadMessageBodies ?? IDLE_ASSISTANT_THREAD_MESSAGE_BODIES,
     operatorInquiryCountSnapshot:
       merged.operatorInquiryCountSnapshot ?? IDLE_ASSISTANT_INQUIRY_COUNT_SNAPSHOT,
     operatorCalendarSnapshot: merged.operatorCalendarSnapshot ?? IDLE_ASSISTANT_CALENDAR_SNAPSHOT,

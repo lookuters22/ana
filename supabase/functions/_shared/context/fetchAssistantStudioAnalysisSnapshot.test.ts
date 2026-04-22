@@ -75,5 +75,65 @@ describe("fetchAssistantStudioAnalysisSnapshot (Slice 12)", () => {
     expect(s.packageMixBooked).toHaveLength(1);
     expect(s.packageMixBooked[0]!.package_name).toBe("Signature");
     expect(s.contractStats?.avg).toBe(5000);
+    expect(s.evidenceNotes.length).toBeGreaterThanOrEqual(4);
+    expect(s.evidenceNotes.some((l) => /Rolling window/i.test(l))).toBe(true);
+    expect(s.evidenceNotes.some((l) => /packageMixBooked/i.test(l))).toBe(true);
+    expect(s.evidenceNotes.some((l) => /contract_value/i.test(l))).toBe(true);
+  });
+
+  it("evidenceNotes warn when no contract stats and flags fetch cap", async () => {
+    const manyRows = Array.from({ length: 200 }, (_, i) => ({
+      id: `w${i}`,
+      couple_names: `C${i}`,
+      stage: "inquiry",
+      wedding_date: "2019-06-10",
+      event_start_date: null,
+      project_type: "wedding",
+      package_name: null,
+      contract_value: null,
+      balance_due: null,
+      location: "",
+    }));
+
+    const supabase = {
+      from: (table: string) => {
+        if (table === "weddings") {
+          const lim = { limit: () => Promise.resolve({ data: manyRows, error: null }) };
+          return {
+            select: () => ({
+              eq: () => ({
+                order: () => ({
+                  order: () => lim,
+                }),
+              }),
+            }),
+          };
+        }
+        if (table === "tasks") {
+          return {
+            select: () => ({
+              eq: () => ({
+                eq: () => Promise.resolve({ data: null, count: 0, error: null }),
+              }),
+            }),
+          };
+        }
+        if (table === "escalation_requests") {
+          return {
+            select: () => ({
+              eq: () => ({
+                eq: () => Promise.resolve({ data: null, count: 0, error: null }),
+              }),
+            }),
+          };
+        }
+        throw new Error("unexpected " + table);
+      },
+    } as SupabaseClient;
+
+    const s = await fetchAssistantStudioAnalysisSnapshot(supabase, "photo-1", new Date("2020-01-15T00:00:00.000Z"));
+    expect(s.contractStats).toBeNull();
+    expect(s.evidenceNotes.some((l) => /No \*\*contract_value\*\* summary/i.test(l))).toBe(true);
+    expect(s.evidenceNotes.some((l) => /Fetch cap hit/i.test(l))).toBe(true);
   });
 });

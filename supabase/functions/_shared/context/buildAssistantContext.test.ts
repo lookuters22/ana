@@ -16,11 +16,16 @@ const { operatorStateFixture, fetchAssistantOperatorStateSummaryMock, fetchStudi
       unlinked: { inquiry: 0, needsFiling: 0, operatorReview: 0, suppressed: 0 },
       zenTabs: { review: 0, drafts: 0, leads: 0, needs_filing: 0 },
     },
+    queueHighlights: [
+      "All snapshot counters are zero — no drafts, tasks, escalations, or inbox-queue threads in this read. Do not invent backlog; data may have changed after snapshot time.",
+    ],
     samples: {
       pendingDrafts: [],
       openEscalations: [],
       openTasks: [],
       topActions: [],
+      linkedLeads: [],
+      unlinkedBuckets: { inquiry: [], needsFiling: [], operatorReview: [] },
     },
   };
   return {
@@ -38,6 +43,7 @@ vi.mock("./fetchAssistantStudioAnalysisSnapshot.ts", () => ({
   fetchAssistantStudioAnalysisSnapshot: fetchStudioAnalysisMock,
 }));
 
+import { IDLE_ASSISTANT_THREAD_MESSAGE_BODIES } from "./fetchAssistantThreadMessageBodies.ts";
 import { buildAssistantContext } from "./buildAssistantContext.ts";
 import { fetchAssistantOperatorStateSummary } from "./fetchAssistantOperatorStateSummary.ts";
 
@@ -167,6 +173,11 @@ describe("buildAssistantContext", () => {
     expect(ctx.crmDigest.recentPeople).toEqual([]);
     expect(ctx.operatorCalendarSnapshot.didRun).toBe(false);
     expect(ctx.retrievalLog.scopesQueried).not.toContain("operator_calendar_snapshot");
+    expect(ctx.operatorTriage.primary).toBe("unclear");
+    expect(ctx.operatorTriage.secondary).toEqual([]);
+    expect(ctx.operatorThreadMessageBodies).toEqual(IDLE_ASSISTANT_THREAD_MESSAGE_BODIES);
+    expect(ctx.retrievalLog.threadMessageBodies?.messageCount).toBe(0);
+    expect(ctx.retrievalLog.operatorQueueIntentMatched).toBe(false);
 
     vi.restoreAllMocks();
   });
@@ -489,6 +500,7 @@ describe("buildAssistantContext", () => {
       fetchedAt: "2020-01-01T00:00:00.000Z",
       window: { monthsBack: 24, cutoffDateIso: "2018-01-01" },
       projectCount: 3,
+      evidenceNotes: ["test note a", "test note b"],
       stageDistribution: { inquiry: 1, booked: 2 },
       byStage: [
         { stage: "booked", count: 2 },
@@ -591,6 +603,7 @@ describe("buildAssistantContext", () => {
     expect(ctx.studioAnalysisSnapshot).toEqual(snap);
     expect(ctx.retrievalLog.scopesQueried).toContain("studio_analysis_snapshot");
     expect(ctx.retrievalLog.studioAnalysisProjectCount).toBe(3);
+    expect(ctx.operatorTriage.primary).toBe("studio_analysis");
 
     vi.restoreAllMocks();
   });
@@ -952,6 +965,134 @@ describe("buildAssistantContext", () => {
     vi.restoreAllMocks();
   });
 
+  it("thread lookup for fuzzy skincare + email question prefers commercial thread over generic career subject (open inbox)", async () => {
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-22T16:00:00.000Z"));
+
+    const thSkincare = {
+      id: "th-skin",
+      title: "Brand shoot inquiry for skincare campaign",
+      wedding_id: null,
+      channel: "email",
+      kind: "client",
+      last_activity_at: "2026-04-22T14:00:00.000Z",
+      last_inbound_at: "2026-04-22T13:00:00.000Z",
+      last_outbound_at: null,
+    };
+    const thCareer = {
+      id: "th-career",
+      title: "Quick question regarding your career / student project",
+      wedding_id: null,
+      channel: "email",
+      kind: "client",
+      last_activity_at: "2026-04-22T15:30:00.000Z",
+      last_inbound_at: "2026-04-22T15:00:00.000Z",
+      last_outbound_at: null,
+    };
+
+    const supabase = {
+      rpc: () => Promise.resolve({ data: [], error: null }),
+      from: (table: string) => {
+        const chain: Record<string, unknown> = {};
+        chain.select = () => chain;
+        chain.eq = () => chain;
+        chain.is = () => chain;
+        chain.in = () => chain;
+        chain.lte = () => chain;
+        chain.lt = () => chain;
+        chain.or = () => chain;
+        chain.order = () => chain;
+        chain.limit = () => chain;
+        chain.neq = () => chain;
+        chain.gte = () => chain;
+        chain.ilike = () => chain;
+        chain.maybeSingle = () => {
+          if (table === "weddings" || table === "people") {
+            return Promise.resolve({ data: null, error: null });
+          }
+          return Promise.resolve({ data: null, error: null });
+        };
+        chain.then = (resolve: (v: unknown) => unknown) => {
+          if (table === "playbook_rules") return resolve({ data: [], error: null });
+          if (table === "authorized_case_exceptions") return resolve({ data: [], error: null });
+          if (table === "tasks" || table === "escalation_requests") {
+            return resolve({ data: null, count: 0, error: null });
+          }
+          if (table === "thread_weddings") return resolve({ data: [], error: null });
+          if (table === "weddings") {
+            return resolve({
+              data: [
+                {
+                  id: "w1",
+                  couple_names: "Other Couple",
+                  location: "X",
+                  stage: "inquiry",
+                  project_type: "wedding",
+                  wedding_date: null,
+                },
+              ],
+              error: null,
+            });
+          }
+          if (table === "people") {
+            return resolve({ data: [], error: null });
+          }
+          if (table === "memories") return resolve({ data: [], error: null });
+          if (table === "global_knowledge" || table === "knowledge_documents") {
+            return resolve({ data: [], error: null });
+          }
+          if (table === "v_threads_inbox_latest_message") {
+            return resolve({
+              data: [
+                {
+                  id: "th-career",
+                  title: "Quick question regarding your career / student project",
+                  wedding_id: null,
+                  last_activity_at: "2026-04-22T15:30:00.000Z",
+                  kind: "client",
+                  latest_sender: "student@school.test",
+                  latest_body: "I had a question about my application.",
+                },
+                {
+                  id: "th-skin",
+                  title: "Brand shoot inquiry for skincare campaign",
+                  wedding_id: null,
+                  last_activity_at: "2026-04-22T14:00:00.000Z",
+                  kind: "client",
+                  latest_sender: "brand@example.com",
+                  latest_body: "We need a photographer for our skincare launch shoot.",
+                },
+              ],
+              error: null,
+            });
+          }
+          if (table === "threads") {
+            return resolve({ data: [thSkincare, thCareer], error: null });
+          }
+          if (table === "thread_participants") {
+            return resolve({ data: [], error: null });
+          }
+          return resolve({ data: [], error: null });
+        };
+        return chain;
+      },
+    } as never;
+
+    const ctx = await buildAssistantContext(supabase, "photo-1", {
+      queryText:
+        "i received a phone call from somebody today regarding a skincare shoot, did they maybe send an email too?",
+    });
+
+    expect(ctx.retrievalLog.scopesQueried).toContain("operator_thread_message_lookup");
+    expect(ctx.operatorThreadMessageLookup.didRun).toBe(true);
+    expect(ctx.operatorThreadMessageLookup.threads[0]?.threadId).toBe("th-skin");
+    expect(ctx.operatorThreadMessageLookup.selectionNote).toMatch(/inbox_scored/);
+
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
   it("loads inquiry count snapshot when the question matches inquiry analytics intent", async () => {
     vi.spyOn(console, "log").mockImplementation(() => {});
     vi.useFakeTimers();
@@ -1043,6 +1184,12 @@ describe("buildAssistantContext", () => {
     expect(ctx.operatorInquiryCountSnapshot.windows.today.count).toBe(1);
     expect(ctx.operatorInquiryCountSnapshot.windows.yesterday.count).toBe(1);
     expect(ctx.retrievalLog.inquiryCountSnapshot?.didRun).toBe(true);
+    expect(ctx.operatorTriage.primary).toBe("inquiry_counts");
+    const triageLogs = vi
+      .mocked(console.log)
+      .mock.calls.map((c) => String(c[0]))
+      .filter((s) => s.includes('"type":"operator_ana_triage"'));
+    expect(triageLogs.some((s) => s.includes('"primary":"inquiry_counts"') && s.includes('"reason"'))).toBe(true);
 
     vi.useRealTimers();
     vi.restoreAllMocks();
@@ -1507,6 +1654,115 @@ describe("buildAssistantContext", () => {
     expect(ctx.operatorCalendarSnapshot.events[0]!.title).toBe("Consultation");
 
     vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it("loads calendar lookup for ISO date questions and surfaces exact_day plan", async () => {
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-22T12:00:00.000Z"));
+
+    const supabase = {
+      rpc: () => Promise.resolve({ data: [], error: null }),
+      from: (table: string) => {
+        const chain: Record<string, unknown> = {};
+        chain.select = () => chain;
+        chain.eq = () => chain;
+        chain.is = () => chain;
+        chain.in = () => chain;
+        chain.lte = () => chain;
+        chain.lt = () => chain;
+        chain.or = () => chain;
+        chain.order = () => chain;
+        chain.neq = () => chain;
+        chain.gte = () => chain;
+        chain.ilike = () => chain;
+        chain.limit = () => {
+          if (table === "calendar_events") {
+            return Promise.resolve({ data: [], error: null });
+          }
+          return chain;
+        };
+        chain.maybeSingle = () => Promise.resolve({ data: null, error: null });
+        chain.then = (resolve: (v: unknown) => unknown) => {
+          if (table === "playbook_rules") return resolve({ data: [], error: null });
+          if (table === "authorized_case_exceptions") return resolve({ data: [], error: null });
+          if (table === "tasks" || table === "escalation_requests") {
+            return resolve({ data: null, count: 0, error: null });
+          }
+          if (table === "thread_weddings") return resolve({ data: [], error: null });
+          if (table === "weddings") {
+            return resolve({
+              data: [{ id: "w1", couple_names: "A & B", stage: "booked", wedding_date: null }],
+              error: null,
+            });
+          }
+          if (table === "people") return resolve({ data: [], error: null });
+          if (table === "memories") return resolve({ data: [], error: null });
+          if (table === "global_knowledge" || table === "knowledge_documents") {
+            return resolve({ data: [], error: null });
+          }
+          return resolve({ data: [], error: null });
+        };
+        return chain;
+      },
+    } as never;
+
+    const ctx = await buildAssistantContext(supabase, "photo-1", {
+      queryText: "What's on my calendar on 2026-06-14?",
+    });
+
+    expect(ctx.retrievalLog.scopesQueried).toContain("operator_calendar_snapshot");
+    expect(ctx.operatorCalendarSnapshot.didRun).toBe(true);
+    expect(ctx.operatorCalendarSnapshot.lookupMode).toBe("exact_day");
+    expect(ctx.operatorCalendarSnapshot.windowStartIso).toBe("2026-06-14T00:00:00.000Z");
+
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it("includes app catalog in prompt for procedural app-help questions; excludes for CRM where-is venue", async () => {
+    vi.spyOn(console, "log").mockImplementation(() => {});
+
+    const supabase = {
+      rpc: () => Promise.resolve({ data: [], error: null }),
+      from: (table: string) => {
+        const chain: Record<string, unknown> = {};
+        chain.select = () => chain;
+        chain.eq = () => chain;
+        chain.is = () => chain;
+        chain.in = () => chain;
+        chain.lte = () => chain;
+        chain.or = () => chain;
+        chain.order = () => chain;
+        chain.limit = () => chain;
+        chain.maybeSingle = () => Promise.resolve({ data: null, error: null });
+        chain.then = (resolve: (v: unknown) => unknown) => {
+          if (table === "playbook_rules") return resolve({ data: [], error: null });
+          if (table === "authorized_case_exceptions") return resolve({ data: [], error: null });
+          if (table === "weddings") return resolve({ data: [], error: null });
+          if (table === "people") return resolve({ data: [], error: null });
+          if (table === "memories") return resolve({ data: [], error: null });
+          if (table === "global_knowledge" || table === "knowledge_documents") {
+            return resolve({ data: [], error: null });
+          }
+          return resolve({ data: [], error: null });
+        };
+        return chain;
+      },
+    } as never;
+
+    const helpCtx = await buildAssistantContext(supabase, "photo-1", {
+      queryText: "How do I change automation mode for a project in the app?",
+    });
+    expect(helpCtx.includeAppCatalogInOperatorPrompt).toBe(true);
+    expect(helpCtx.retrievalLog.scopesQueried).toContain("app_catalog");
+
+    const crmCtx = await buildAssistantContext(supabase, "photo-1", {
+      queryText: "Where is the venue for this project?",
+    });
+    expect(crmCtx.includeAppCatalogInOperatorPrompt).toBe(false);
+
     vi.restoreAllMocks();
   });
 });

@@ -1,6 +1,7 @@
 /**
  * Validation for task proposals + confirm path (Slice 7). Aligned with `tasks` insert.
  */
+import { defaultOperatorAssistantTaskDueDateUtcToday } from "../../../../src/lib/operatorAssistantTaskDueDate.ts";
 import type {
   InsertOperatorAssistantTaskBody,
   OperatorAssistantProposedActionTask,
@@ -8,7 +9,9 @@ import type {
 
 const MAX_TITLE = 500;
 
-export type ValidatedOperatorAssistantTaskPayload = InsertOperatorAssistantTaskBody & {
+export type ValidatedOperatorAssistantTaskPayload = Omit<InsertOperatorAssistantTaskBody, "dueDate"> & {
+  /** Canonical YYYY-MM-DD (UTC calendar), same as `dueDateNormalized`. */
+  dueDate: string;
   /** Normalized for `tasks.due_date` (YYYY-MM-DD). */
   dueDateNormalized: string;
 };
@@ -47,9 +50,14 @@ export function validateOperatorAssistantTaskPayload(
   const title = trimTitle(o.title);
   if (!title) return { ok: false, error: "title is required" };
 
-  const dueRaw = typeof o.dueDate === "string" ? o.dueDate : typeof o.due_date === "string" ? o.due_date : null;
-  if (!dueRaw) return { ok: false, error: "dueDate is required" };
-  const n = normalizeTaskDueDateForDb(dueRaw);
+  const dueRawTrimmed =
+    typeof o.dueDate === "string"
+      ? o.dueDate.trim()
+      : typeof o.due_date === "string"
+        ? o.due_date.trim()
+        : "";
+  const dueEffective = dueRawTrimmed.length > 0 ? dueRawTrimmed : defaultOperatorAssistantTaskDueDateUtcToday();
+  const n = normalizeTaskDueDateForDb(dueEffective);
   if (!n.ok) return n;
 
   let weddingId: string | null = null;
@@ -64,7 +72,7 @@ export function validateOperatorAssistantTaskPayload(
     ok: true,
     value: {
       title,
-      dueDate: dueRaw.trim(),
+      dueDate: n.value,
       dueDateNormalized: n.value,
       weddingId,
     },

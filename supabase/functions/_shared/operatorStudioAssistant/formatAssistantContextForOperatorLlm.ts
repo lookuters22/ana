@@ -11,6 +11,7 @@ import type {
   AssistantStudioAnalysisSnapshot,
 } from "../../../../src/types/assistantContext.types.ts";
 import { EMPTY_ASSISTANT_PLAYBOOK_COVERAGE_SUMMARY } from "../../../../src/lib/deriveAssistantPlaybookCoverageSummary.ts";
+import { hasOperatorQueueStateIntent } from "../../../../src/lib/operatorAssistantOperatorStateIntent.ts";
 import {
   hasOperatorThreadMessageLookupIntent,
   querySuggestsCommercialOrNonWeddingInboundFocus,
@@ -126,8 +127,13 @@ function formatFocusedProjectFactsBlock(f: AssistantFocusedProjectFacts): string
 function formatOperatorStateSummary(s: AssistantOperatorStateSummary): string {
   const lines: string[] = [];
   lines.push(
-    "(**Read-only snapshot** — same sources as the operator Today / Zen feed. Use for “what’s waiting / urgent / what next”; **do not invent** queue items. Suggest, don’t assert sends.)",
+    "(**Read-only snapshot** — same sources as the operator Today / Zen feed. **Counts and named samples** are the only queue evidence; **do not invent** items, sends, or SLA urgency. Suggest next steps; do not assert completions.)",
   );
+  lines.push("");
+  lines.push("### Snapshot-derived priorities (from counts only)");
+  for (const h of s.queueHighlights) {
+    lines.push(`- ${h}`);
+  }
   lines.push("");
   lines.push("### Counts");
   const c = s.counts;
@@ -141,7 +147,42 @@ function formatOperatorStateSummary(s: AssistantOperatorStateSummary): string {
     `- **Zen tabs (escalations + operator-review unfiled → Review; drafts → Drafts; inquiries + open leads → Leads; other unfiled needs filing → Needs filing; tasks are not in a tab):** Review ${c.zenTabs.review}; Drafts ${c.zenTabs.drafts}; Leads ${c.zenTabs.leads}; Needs filing ${c.zenTabs.needs_filing}`,
   );
   lines.push("");
-  lines.push("### Recent samples (titles; no message bodies)");
+  lines.push("### Inbox thread samples (titles only; linked + unlinked buckets)");
+  const ub = s.samples.unlinkedBuckets;
+  const hasBucketSamples =
+    s.samples.linkedLeads.length > 0 ||
+    ub.inquiry.length > 0 ||
+    ub.needsFiling.length > 0 ||
+    ub.operatorReview.length > 0;
+  if (s.samples.linkedLeads.length > 0) {
+    lines.push("**Linked open leads:**");
+    for (const x of s.samples.linkedLeads) {
+      lines.push(`  - ${x.title} — ${x.subtitle} — thread \`${x.threadId}\``);
+    }
+  }
+  if (ub.inquiry.length > 0) {
+    lines.push("**Unlinked inquiry:**");
+    for (const x of ub.inquiry) {
+      lines.push(`  - ${x.title} — thread \`${x.threadId}\``);
+    }
+  }
+  if (ub.operatorReview.length > 0) {
+    lines.push("**Unlinked operator review:**");
+    for (const x of ub.operatorReview) {
+      lines.push(`  - ${x.title} — thread \`${x.threadId}\``);
+    }
+  }
+  if (ub.needsFiling.length > 0) {
+    lines.push("**Unlinked needs filing:**");
+    for (const x of ub.needsFiling) {
+      lines.push(`  - ${x.title} — thread \`${x.threadId}\``);
+    }
+  }
+  if (!hasBucketSamples) {
+    lines.push("(no inbox thread samples in this snapshot — bucket lists empty or suppressed-only)");
+  }
+  lines.push("");
+  lines.push("### Recent action samples (mixed types by recency; titles only; no message bodies)");
   if (s.samples.topActions.length > 0) {
     lines.push("**By recency (mixed):**");
     for (const a of s.samples.topActions) {
@@ -232,6 +273,7 @@ function formatPlaybookCoverageSummaryForOperatorLlm(ctx: AssistantContext): str
 }
 
 function shouldPrioritizeInboxThreadEvidence(ctx: AssistantContext): boolean {
+  if (hasOperatorQueueStateIntent(ctx.queryText)) return false;
   if (!ctx.operatorThreadMessageLookup.didRun) return false;
   if (ctx.operatorThreadMessageLookup.selectionNote.includes("inbox_scored")) return true;
   return querySuggestsCommercialOrNonWeddingInboundFocus(ctx.queryText);
@@ -346,9 +388,12 @@ function formatOperatorCalendarSnapshotForOperatorLlm(ctx: AssistantContext): st
   const lines: string[] = [];
   lines.push("## Calendar lookup (read-only, `calendar_events`)");
   lines.push(
-    "*(**This studio’s database events only** — not Google Calendar or other externals. **No writes** from this context: you cannot create, move, or delete events. **Tasks are not calendar events.** Summarize what is listed; if empty, say so.)*",
+    "*(**This studio’s database events only** — not Google Calendar or other externals. **No writes** from this context: you cannot create, move, or delete events. **Tasks are not calendar events.** Answer **only** from the rows in this block for the stated window and filters.)*",
   );
   lines.push("");
+  lines.push(
+    "- **Evidence contract:** If the event list is empty, say there are **no matching `calendar_events` rows** for this window — **not** that the operator is “free” in real life or on other systems. If rows exist, you may summarize them; do not invent additional appointments.",
+  );
   lines.push(`- **Lookup mode:** \`${s.lookupMode}\``);
   lines.push(`- **Lookup basis:** ${clip(s.lookupBasis, 600)}`);
   lines.push(`- **Time window:** \`${s.windowStartIso}\` … \`${s.windowEndIso}\` — ${s.windowLabel}`);
@@ -392,11 +437,19 @@ function formatOperatorCalendarSnapshotForOperatorLlm(ctx: AssistantContext): st
 function formatThreadMessageLookupForOperatorLlm(ctx: AssistantContext): string | null {
   const t = ctx.operatorThreadMessageLookup;
   if (!t.didRun) return null;
+  const bodies = ctx.operatorThreadMessageBodies;
+  const hasExcerpts = bodies.didRun && bodies.messages.length > 0;
   const lines: string[] = [];
   lines.push("## Recent thread & email activity (read-only, bounded)");
-  lines.push(
-    "*(Deterministic `threads` rows — last activity / inbound / outbound times from the database. **Envelope only:** subject/title, channel, kind, timestamps, thread id — **not** message bodies, snippets, or sender text. **Do not** summarize “what the email is about” from the title alone; if asked for body-level content, say it is not in this view and point the operator to Inbox / the thread. Not a search over all history.)*",
-  );
+  if (hasExcerpts) {
+    lines.push(
+      "*(**Envelope block:** deterministic `threads` metadata — title, channel, kind, timestamps, thread id. **Bounded message excerpts** from `messages.body` appear under **Thread message excerpts** below when loaded — summarize body-level questions **only** from that subsection, not from the subject line alone.)*",
+    );
+  } else {
+    lines.push(
+      "*(Deterministic `threads` rows — last activity / inbound / outbound times from the database. **Envelope only:** subject/title, channel, kind, timestamps, thread id — **not** message bodies unless a **Thread message excerpts** subsection is present below or you used **operator_lookup_thread_messages** in this turn. **Do not** summarize “what the email is about” from the title alone; if asked for body-level content and there are **no** excerpts, say so honestly and use **operator_lookup_thread_messages** with a `threadId` from this list (or ask the operator to narrow to one thread). Not a search over all history.)*",
+    );
+  }
   lines.push("");
   if (
     querySuggestsCommercialOrNonWeddingInboundFocus(ctx.queryText) ||
@@ -421,15 +474,40 @@ function formatThreadMessageLookupForOperatorLlm(ctx: AssistantContext): string 
       );
     }
   }
+  if (hasExcerpts) {
+    lines.push("");
+    lines.push("### Thread message excerpts (bounded read-only)");
+    lines.push(
+      `*(Actual \`messages.body\` text for thread \`${bodies.threadId}\` (**${clip(bodies.threadTitle ?? "—", 120)}**). **Up to 8** most recent messages; each body **≤900** UTF-8 chars; chronological order. **Tenant-scoped read** — not full thread history if older messages exist.)*`,
+    );
+    if (bodies.truncatedOverall) {
+      lines.push("- **Caution:** At least one body was clipped or the **8-message** cap applied — additional content may exist in Inbox.");
+    }
+    lines.push("");
+    for (const m of bodies.messages) {
+      const clipNote = m.bodyClipped ? " *(body clipped)*" : "";
+      lines.push(
+        `- **${m.direction}** · \`${m.sentAt}\` · sender: ${clip(m.sender, 160)} · message \`${m.messageId}\`${clipNote}`,
+      );
+      const excerpt = m.bodyExcerpt.replace(/\n/g, "\n  ");
+      lines.push(`  ${excerpt}`);
+    }
+  }
   return lines.join("\n");
 }
 
 function formatStudioAnalysisSnapshotBlock(s: AssistantStudioAnalysisSnapshot): string {
   const lines: string[] = [];
   lines.push(
-    "(**Read-only — this studio’s CRM `weddings` rows** in a rolling window, plus **open task** and **open escalation** counts. **Not** competitors, **not** market benchmarks. If `projectCount` is small, treat trends as **low confidence**.)",
+    "(**Read-only — this studio’s CRM `weddings` rows** in a rolling window, plus **open task** and **open escalation** head counts. **Not** competitors, **not** market benchmarks, **not** industry norms.)",
   );
   lines.push("");
+  lines.push("### Grounding (read before JSON)");
+  for (const note of s.evidenceNotes) {
+    lines.push(`- ${note}`);
+  }
+  lines.push("");
+  lines.push("### Snapshot JSON");
   lines.push("```json");
   lines.push(clip(JSON.stringify(s), MAX_STUDIO_ANALYSIS_JSON_CHARS));
   lines.push("```");
@@ -448,6 +526,15 @@ export function formatAssistantContextForOperatorLlm(
 
   parts.push("## Operator question");
   parts.push(clip(ctx.queryText, 8000));
+  parts.push("");
+
+  parts.push("## Triage (v1 hint — not a gate)");
+  parts.push(
+    JSON.stringify({
+      primary: ctx.operatorTriage.primary,
+      secondary: [...ctx.operatorTriage.secondary],
+    }),
+  );
   parts.push("");
 
   if (typeof weatherMd === "string" && weatherMd.trim().length > 0) {
@@ -472,6 +559,26 @@ export function formatAssistantContextForOperatorLlm(
     parts.push("");
   }
 
+  const studioAnalysisFirst = ctx.operatorTriage.primary === "studio_analysis";
+  if (studioAnalysisFirst && ctx.studioAnalysisSnapshot != null) {
+    parts.push("## Studio analysis snapshot (read-only — prioritize for this question)");
+    parts.push(
+      "*(Studio-level **pricing, pipeline, mix, or “what the data shows”** — cite **Grounding** and JSON **only**. Frame as **observations**; **no** market or competitor advice; **no** invented medians or benchmarks.)*",
+    );
+    parts.push(formatStudioAnalysisSnapshotBlock(ctx.studioAnalysisSnapshot));
+    parts.push("");
+  }
+
+  const queueIntent = ctx.retrievalLog.operatorQueueIntentMatched === true;
+  if (queueIntent) {
+    parts.push("## Operator queue / Today snapshot (read-only — prioritize for this question)");
+    parts.push(
+      "*(The operator asked about **workload, what’s waiting, urgency, or what to do next**. For queue claims, use **only** **Snapshot-derived priorities**, **Counts**, and **samples** in this block. **Open tasks** appear here but **not** in Zen tab totals. **Do not invent** queue rows, deadlines, or sends.)*",
+    );
+    parts.push(formatOperatorStateSummary(ctx.operatorStateSummary));
+    parts.push("");
+  }
+
   const matched = formatMatchedEntitiesForOperatorLlm(ctx);
   const threadLookupMd = formatThreadMessageLookupForOperatorLlm(ctx);
   const inboxFirst = shouldPrioritizeInboxThreadEvidence(ctx);
@@ -486,7 +593,7 @@ export function formatAssistantContextForOperatorLlm(
     parts.push("");
   }
 
-  if (ctx.studioAnalysisSnapshot != null) {
+  if (ctx.studioAnalysisSnapshot != null && !studioAnalysisFirst) {
     parts.push("## Studio analysis snapshot (from this studio’s data)");
     parts.push(formatStudioAnalysisSnapshotBlock(ctx.studioAnalysisSnapshot));
     parts.push("");
@@ -496,11 +603,12 @@ export function formatAssistantContextForOperatorLlm(
     parts.push("## App help / navigation (in-repo catalog — authoritative for *this* app only)");
     parts.push(
       "For **where to find** something, **how to** do something in the product, or **what a status/label means**, use **only** the JSON object below. " +
-        "For **procedural** questions, match **`APP_PROCEDURAL_WORKFLOWS`** by `id` and follow `steps` in order, quoting control labels (e.g. **Edit**, **Save**, **Has draft**) exactly as listed. " +
-        "Respect `groundingConfidence`: **`high`** = full steps are fine; **`medium`** = keep guidance high-level and do not fabricate sub-controls or tab names. " +
+        "For **procedural** questions, pick the closest **`APP_PROCEDURAL_WORKFLOWS`** entry by `title`/`id`, follow **`steps` in order**, and quote control labels (e.g. **Edit**, **Save**, **Has draft**) **exactly** as written there — **do not** add steps, buttons, or tabs that are not in that workflow’s `steps` or `notes`. " +
+        "If no workflow fits, say the catalog does not list a procedure for that and use **`APP_WORKFLOW_POINTERS`** / **`APP_WORKFLOW_HONESTY_NOTES`** or **Settings**/**Onboarding** — **do not** invent a flow. " +
+        "**Grounding contract:** Every **`/path`**, dock **`label`**, quick-filter name, and status string you mention must appear in the JSON (or be an exact substring of a catalog string). If you are unsure, say so instead of guessing a label. " +
+        "Respect **`groundingConfidence`**: **`high`** = full steps are fine; **`medium`** = stay coarse; **do not** fabricate fine-grained controls or tab names not in the workflow text. " +
         "For surfaces that are **not** built, use **`APP_WORKFLOW_HONESTY_NOTES`** and state the gap honestly. " +
-        "**Quote** `path` values, dock `label` strings, and left-rail labels **exactly** as in the JSON. " +
-        "If the question is about **generic software** (browsers, Git, other apps) or the catalog has no matching entry, say briefly you only help with **this** studio app and suggest **Settings** or **Onboarding** — **do not invent** UI.",
+        "If the question is about **generic software** (browsers, Git, other apps), say briefly you only help with **this** studio app and suggest **Settings** or **Onboarding** — **do not invent** UI.",
     );
     parts.push("```json");
     parts.push(clip(ctx.appCatalog.catalogJson, MAX_APP_CATALOG_JSON_CHARS));
@@ -510,14 +618,16 @@ export function formatAssistantContextForOperatorLlm(
     parts.push("## App help / navigation");
     parts.push(
       "*(Full in-repo app catalog **not** included for this question — the query was not treated as app-navigation, label, or in-product “where/how” help.)* " +
-        "**Do not invent** routes, tab names, or status labels. If the user needs UI navigation or label meanings, they can ask in those terms; otherwise use playbook, memory, operator state, and CRM context above.",
+        "**Do not invent** routes, tab names, or status labels, and **do not** give step-by-step UI walkthroughs from memory. If the user needs grounded navigation or label meanings, they can rephrase (e.g. *“Where do I find drafts in the app?”*); otherwise use playbook, memory, operator state, and project tools above.",
     );
   }
   parts.push("");
 
-  parts.push("## Operator state (Today / Inbox — read-only snapshot)");
-  parts.push(formatOperatorStateSummary(ctx.operatorStateSummary));
-  parts.push("");
+  if (!queueIntent) {
+    parts.push("## Operator state (Today / Inbox — read-only snapshot)");
+    parts.push(formatOperatorStateSummary(ctx.operatorStateSummary));
+    parts.push("");
+  }
 
   if (!inboxFirst && threadLookupMd) {
     parts.push(threadLookupMd);
@@ -606,6 +716,8 @@ export function formatAssistantContextForOperatorLlm(
       focus: ctx.retrievalLog.focus,
       entityResolution: ctx.retrievalLog.entityResolution,
       threadMessageLookup: ctx.retrievalLog.threadMessageLookup,
+      threadMessageBodies: ctx.retrievalLog.threadMessageBodies,
+      operatorQueueIntentMatched: ctx.retrievalLog.operatorQueueIntentMatched ?? false,
       inquiryCountSnapshot: ctx.retrievalLog.inquiryCountSnapshot,
       calendarSnapshot: ctx.retrievalLog.calendarSnapshot,
       readOnlyLookupTools: ctx.retrievalLog.readOnlyLookupTools,

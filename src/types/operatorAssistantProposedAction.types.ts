@@ -28,7 +28,10 @@ export type OperatorAssistantProposedActionPlaybookRuleCandidate = {
 export type OperatorAssistantProposedActionTask = {
   kind: "task";
   title: string;
-  /** ISO date (YYYY-MM-DD) or parseable date string; normalized server-side for `tasks.due_date`. */
+  /**
+   * YYYY-MM-DD (UTC calendar). After server/widget normalization, always set.
+   * The model may omit **dueDate** in JSON; confirm path defaults to today (UTC).
+   */
   dueDate: string;
   weddingId?: string | null;
 };
@@ -90,7 +93,8 @@ export type InsertOperatorAssistantPlaybookRuleCandidateBody = {
 /** API body for `insert-operator-assistant-task` (confirm step). */
 export type InsertOperatorAssistantTaskBody = {
   title: string;
-  dueDate: string;
+  /** Omit to default to today (UTC calendar) — same as proposal normalization. */
+  dueDate?: string;
   weddingId?: string | null;
 };
 

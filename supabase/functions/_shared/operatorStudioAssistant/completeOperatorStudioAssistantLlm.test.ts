@@ -27,10 +27,13 @@ import type {
 } from "../../../../src/types/assistantContext.types.ts";
 import { getAssistantAppCatalogForContext } from "../../../../src/lib/operatorAssistantAppCatalog.ts";
 import { shouldIncludeAppCatalogInOperatorPrompt } from "../../../../src/lib/operatorAssistantAppHelpIntent.ts";
+import { IDLE_ASSISTANT_THREAD_MESSAGE_BODIES } from "../context/fetchAssistantThreadMessageBodies.ts";
 import { IDLE_ASSISTANT_THREAD_MESSAGE_LOOKUP } from "../context/fetchAssistantThreadMessageLookup.ts";
 import { IDLE_ASSISTANT_INQUIRY_COUNT_SNAPSHOT } from "../context/fetchAssistantInquiryCountSnapshot.ts";
 import { IDLE_ASSISTANT_CALENDAR_SNAPSHOT } from "../context/fetchAssistantOperatorCalendarSnapshot.ts";
+import { IDLE_ASSISTANT_OPERATOR_STATE_SUMMARY } from "../context/fetchAssistantOperatorStateSummary.ts";
 import { deriveAssistantPlaybookCoverageSummary } from "../../../../src/lib/deriveAssistantPlaybookCoverageSummary.ts";
+import { IDLE_OPERATOR_ANA_TRIAGE } from "../../../../src/lib/operatorAnaTriage.ts";
 import { IDLE_OPERATOR_QUERY_ENTITY_RESOLUTION } from "../context/resolveOperatorQueryEntitiesFromIndex.ts";
 import type { OperatorAnaCarryForwardForLlm } from "../../../../src/types/operatorAnaCarryForward.types.ts";
 import {
@@ -38,22 +41,9 @@ import {
 } from "./operatorAssistantCarryForward.ts";
 
 const EMPTY_OPERATOR_STATE: AssistantOperatorStateSummary = {
+  ...IDLE_ASSISTANT_OPERATOR_STATE_SUMMARY,
   fetchedAt: "2020-01-01T00:00:00.000Z",
   sourcesNote: "",
-  counts: {
-    pendingApprovalDrafts: 0,
-    openTasks: 0,
-    openEscalations: 0,
-    linkedOpenLeads: 0,
-    unlinked: { inquiry: 0, needsFiling: 0, operatorReview: 0, suppressed: 0 },
-    zenTabs: { review: 0, drafts: 0, leads: 0, needs_filing: 0 },
-  },
-  samples: {
-    pendingDrafts: [],
-    openEscalations: [],
-    openTasks: [],
-    topActions: [],
-  },
 };
 import {
   completeOperatorStudioAssistantLlm,
@@ -105,8 +95,10 @@ function minimalAssistantContext(overrides: Partial<AssistantContext> = {}): Ass
     },
     operatorQueryEntityResolution: IDLE_OPERATOR_QUERY_ENTITY_RESOLUTION,
     operatorThreadMessageLookup: IDLE_ASSISTANT_THREAD_MESSAGE_LOOKUP,
+    operatorThreadMessageBodies: IDLE_ASSISTANT_THREAD_MESSAGE_BODIES,
     operatorInquiryCountSnapshot: IDLE_ASSISTANT_INQUIRY_COUNT_SNAPSHOT,
     operatorCalendarSnapshot: IDLE_ASSISTANT_CALENDAR_SNAPSHOT,
+    operatorTriage: IDLE_OPERATOR_ANA_TRIAGE,
     ...overrides,
   };
   const cov = deriveAssistantPlaybookCoverageSummary(base.playbookRules);
@@ -117,6 +109,8 @@ function minimalAssistantContext(overrides: Partial<AssistantContext> = {}): Ass
       overrides.includeAppCatalogInOperatorPrompt ?? shouldIncludeAppCatalogInOperatorPrompt(base.queryText),
     operatorThreadMessageLookup:
       base.operatorThreadMessageLookup ?? IDLE_ASSISTANT_THREAD_MESSAGE_LOOKUP,
+    operatorThreadMessageBodies:
+      base.operatorThreadMessageBodies ?? IDLE_ASSISTANT_THREAD_MESSAGE_BODIES,
     operatorInquiryCountSnapshot:
       base.operatorInquiryCountSnapshot ?? IDLE_ASSISTANT_INQUIRY_COUNT_SNAPSHOT,
     operatorCalendarSnapshot: base.operatorCalendarSnapshot ?? IDLE_ASSISTANT_CALENDAR_SNAPSHOT,
@@ -215,10 +209,13 @@ describe("OPERATOR_STUDIO_ASSISTANT_SYSTEM_PROMPT (Slice 2)", () => {
   it("Slice 5 — B9 / app help: in-repo catalog, quote paths, no invented UI; redirect generic software", () => {
     const p = OPERATOR_STUDIO_ASSISTANT_SYSTEM_PROMPT;
     expect(p).toMatch(/[Aa]pp help|in-repo catalog/i);
-    expect(p).toMatch(/(JSON|in-repo|catalog).*(quote|path|label)/i);
-    expect(p).toMatch(/[Dd]o not invent|not invent/i);
+    expect(p).toMatch(/grounding completion/i);
+    expect(p).toMatch(/(JSON|in-repo|catalog).*(quote|path|label|verbatim)/i);
+    expect(p).toMatch(/single best-matching|best-matching/i);
+    expect(p).toMatch(/[Dd]o not invent|not invent|fabricat/i);
     expect(p).toMatch(/[Gg]it|[Bb]rowser|generic software/i);
     expect(p).toMatch(/[Oo]nboarding|Settings/i);
+    expect(p).toMatch(/catalog does not define|omitted/i);
   });
 
   it("Slice 9 — Open-Meteo block only; no web search; honest about forecast window", () => {
@@ -235,6 +232,8 @@ describe("OPERATOR_STUDIO_ASSISTANT_SYSTEM_PROMPT (Slice 2)", () => {
     expect(p).toMatch(/small|tentative/i);
     expect(p).toMatch(/competitor|industry|market/i);
     expect(p).toMatch(/observations|coaching/i);
+    expect(p).toContain("### Grounding (read before JSON)");
+    expect(p).toContain("studio_analysis");
   });
 
   it("Slice 6–8 — JSON response + playbook, task, and memory_note proposals (no claim of save)", () => {
@@ -244,9 +243,17 @@ describe("OPERATOR_STUDIO_ASSISTANT_SYSTEM_PROMPT (Slice 2)", () => {
     expect(p).toContain("playbook_rule_candidate");
     expect(p).toContain('**"task"**');
     expect(p).toContain("**dueDate**");
+    expect(p).toMatch(/optional.*dueDate|dueDate.*optional/i);
     expect(p).toContain('**"memory_note"**');
     expect(p).toContain("**memoryScope**");
     expect(p).toMatch(/[Nn]ever claim a rule, task, memory, or exception|proposes/);
+  });
+
+  it("safe task write promotion — manager phrasing + confirm-before-save in system prompt", () => {
+    const p = OPERATOR_STUDIO_ASSISTANT_SYSTEM_PROMPT;
+    expect(p).toMatch(/\*\*Tasks \(manager/);
+    expect(p).toMatch(/remind me|follow up|to-do|Create task/i);
+    expect(p).toMatch(/nothing is saved until|Create task under your message/i);
   });
 
   it("Slice 11 — authorized_case_exception in JSON response format (case-scoped, not a global rule)", () => {
@@ -263,6 +270,7 @@ describe("OPERATOR_STUDIO_ASSISTANT_SYSTEM_PROMPT (Slice 2)", () => {
     expect(p).toContain("operator_lookup_projects");
     expect(p).toContain("operator_lookup_project_details");
     expect(p).toContain("operator_lookup_threads");
+    expect(p).toContain("operator_lookup_thread_messages");
     expect(p).toContain("operator_lookup_inquiry_counts");
     expect(p).toMatch(/read-only lookup tools|Read-only lookup tools/i);
     expect(p).toMatch(/Project CRM|resolver vs detail|Slice 3/);
@@ -297,17 +305,33 @@ describe("OPERATOR_STUDIO_ASSISTANT_SYSTEM_PROMPT (Slice 2)", () => {
 
   it("Slice 6 — single canonical carry-forward / follow-up resolution paragraph (no duplicate)", () => {
     const p = OPERATOR_STUDIO_ASSISTANT_SYSTEM_PROMPT;
+    expect(p).toContain("**Triage (v1 hint — Slice A2):**");
     const n = p.match(/\*\*Follow-up resolution \(Slice 6 — carry-forward pointer\):\*\*/g)?.length;
     expect(n).toBe(1);
   });
 
-  it("thread / email honesty: title is not body; no inferring message content from subject line", () => {
+  it("Calendar — system prompt stresses DB window evidence (no “free day” inference)", () => {
     const p = OPERATOR_STUDIO_ASSISTANT_SYSTEM_PROMPT;
-    expect(p).toMatch(/\*\*Thread & email metadata \(Context — honesty\):\*\*/);
-    expect(p).toMatch(/Recent thread & email activity/);
-    expect(p).toMatch(/A thread title is not the message body/);
-    expect(p).toMatch(/Do not.*paraphrase|infer.*title alone/i);
-    expect(p).toMatch(/Inbox/);
+    expect(p).toMatch(/\*\*Calendar \(read-only — database calendar_events\):\*\*/);
+    expect(p).toContain("lookup mode");
+    expect(p).toContain("UTC time window");
+    expect(p).toMatch(/no rows|free/i);
+  });
+
+  it("thread / email honesty: bounded bodies + title is not a substitute when excerpts absent", () => {
+    const p = OPERATOR_STUDIO_ASSISTANT_SYSTEM_PROMPT;
+    expect(p).toMatch(/\*\*Thread & email \(Context — honesty \+ bounded bodies\):\*\*/);
+    expect(p).toMatch(/Thread message excerpts/);
+    expect(p).toMatch(/operator_lookup_thread_messages/);
+    expect(p).toMatch(/thread title is never a substitute|title is never a substitute/i);
+    expect(p).toMatch(/900|8 recent/);
+  });
+
+  it("Slice 3 refinement — operator queue / Today snapshot contract", () => {
+    const p = OPERATOR_STUDIO_ASSISTANT_SYSTEM_PROMPT;
+    expect(p).toMatch(/\*\*Operator queue \/ Today \(read-only — Slice 3 refinement\):\*\*/);
+    expect(p).toContain("operator_queue");
+    expect(p).toMatch(/Snapshot-derived|Zen tab totals/i);
   });
 });
 
@@ -373,6 +397,71 @@ describe("completeOperatorStudioAssistantLlm (mocked OpenAI)", () => {
     expect(body.messages[1].content).toContain("## App help / navigation (in-repo catalog");
     expect(body.messages[1].content).toContain("```json");
     expect(body.messages[1].content).toContain("Where do I find drafts?");
+  });
+
+  it("user Context includes Thread message excerpts when first-pass bodies snapshot ran", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  reply: "They’re asking about June 14.",
+                  proposedActions: [],
+                }),
+              },
+            },
+          ],
+        }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const tid = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const ctx = minimalAssistantContext({
+      queryText: "What did they say in the email?",
+      operatorThreadMessageLookup: {
+        didRun: true,
+        selectionNote: "single",
+        threads: [
+          {
+            threadId: tid,
+            title: "Re: Pricing",
+            weddingId: null,
+            channel: "email",
+            kind: "client",
+            lastActivityAt: "2025-01-02T00:00:00.000Z",
+            lastInboundAt: "2025-01-02T00:00:00.000Z",
+            lastOutboundAt: null,
+          },
+        ],
+      },
+      operatorThreadMessageBodies: {
+        didRun: true,
+        selectionNote: "messages_loaded",
+        threadId: tid,
+        threadTitle: "Re: Pricing",
+        truncatedOverall: false,
+        messages: [
+          {
+            messageId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+            direction: "in",
+            sender: "client@example.com",
+            sentAt: "2025-01-02T00:00:00.000Z",
+            bodyExcerpt: "We would love to book June 14.",
+            bodyClipped: false,
+          },
+        ],
+      },
+    });
+    const out = await completeOperatorStudioAssistantLlm(ctx);
+    expect(out.reply).toContain("June 14");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const init = fetchMock.mock.calls[0]![1] as RequestInit;
+    const body = JSON.parse(String(init.body)) as { messages: Array<{ content: string }> };
+    expect(body.messages[1]!.content).toContain("### Thread message excerpts");
+    expect(body.messages[1]!.content).toContain("We would love to book June 14.");
   });
 
   it("Slice 6: parses proposed playbook_rule_candidate actions from the model JSON", async () => {
@@ -441,6 +530,37 @@ describe("completeOperatorStudioAssistantLlm (mocked OpenAI)", () => {
     if (out.proposedActions[0]!.kind === "task") {
       expect(out.proposedActions[0].title).toBe("Send gallery preview");
       expect(out.proposedActions[0].dueDate).toBe("2026-04-30");
+    }
+  });
+
+  it("Slice 7+: proposed task without dueDate defaults to today UTC after parse", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date("2026-04-22T10:00:00.000Z"));
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            choices: [
+              {
+                message: {
+                  content: JSON.stringify({
+                    reply: "Due today unless you change it in Tasks.",
+                    proposedActions: [{ kind: "task", title: "Reply to planner" }],
+                  }),
+                },
+              },
+            ],
+          }),
+      });
+      vi.stubGlobal("fetch", fetchMock);
+      const out = await completeOperatorStudioAssistantLlm(minimalAssistantContext({ queryText: "Remind me to reply" }));
+      expect(out.proposedActions).toHaveLength(1);
+      if (out.proposedActions[0]!.kind === "task") {
+        expect(out.proposedActions[0].dueDate).toBe("2026-04-22");
+      }
+    } finally {
+      vi.useRealTimers();
     }
   });
 

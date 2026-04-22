@@ -3,6 +3,7 @@
  * and structured display (footer / dev retrieval).
  */
 import type { AuthorizedCaseExceptionOverridePayload } from "../types/decisionContext.types.ts";
+import { defaultOperatorAssistantTaskDueDateUtcToday } from "./operatorAssistantTaskDueDate.ts";
 import type {
   OperatorAssistantProposedActionAuthorizedCaseException,
   OperatorAssistantProposedActionMemoryNote,
@@ -136,8 +137,13 @@ function normalizeTaskProposals(raw: unknown): OperatorAssistantProposedActionTa
     if (!x || typeof x !== "object" || (x as { kind?: string }).kind !== "task") continue;
     const o = x as Record<string, unknown>;
     if (typeof o.title !== "string" || o.title.trim().length === 0) continue;
-    if (typeof o.dueDate !== "string" || o.dueDate.trim().length === 0) continue;
-    const dueMs = Date.parse(o.dueDate.trim());
+    const dueStr =
+      typeof o.dueDate === "string" && o.dueDate.trim().length > 0
+        ? o.dueDate.trim()
+        : typeof o.due_date === "string" && o.due_date.trim().length > 0
+          ? o.due_date.trim()
+          : defaultOperatorAssistantTaskDueDateUtcToday();
+    const dueMs = Date.parse(dueStr);
     if (!Number.isFinite(dueMs)) continue;
     const d = new Date(dueMs);
     const y = d.getUTCFullYear();

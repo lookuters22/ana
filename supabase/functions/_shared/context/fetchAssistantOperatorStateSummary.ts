@@ -1,6 +1,10 @@
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import type { UnfiledThread } from "../../../../src/hooks/useUnfiledInbox.ts";
-import { deriveInboxThreadBucket, isSuppressedInboxThread } from "../../../../src/lib/inboxThreadBucket.ts";
+import {
+  deriveInboxThreadBucket,
+  isSuppressedInboxThread,
+  type InboxThreadBucket,
+} from "../../../../src/lib/inboxThreadBucket.ts";
 import { INQUIRY_STAGES } from "../../../../src/lib/inboxVisibleThreads.ts";
 import { mapPendingApprovalProjectionRow } from "../../../../src/lib/pendingApprovalProjection.ts";
 import {
@@ -18,6 +22,8 @@ const MAX_SAMPLE_DRAFTS = 4;
 const MAX_SAMPLE_ESCALATIONS = 4;
 const MAX_SAMPLE_TASKS = 4;
 const MAX_SAMPLE_TOP_ACTIONS = 8;
+const MAX_SAMPLE_LINKED_LEADS = 4;
+const MAX_SAMPLES_PER_UNLINKED_BUCKET = 2;
 
 const INBOX_LIST_SELECT = "id, wedding_id, title, last_activity_at, ai_routing_metadata, latest_sender";
 
@@ -40,6 +46,91 @@ function minimalUnfiledThreadFromViewRow(row: Record<string, unknown>): UnfiledT
     gmailLabelIds: null,
   };
 }
+
+function sortUnfiledByActivityDesc(threads: UnfiledThread[]): UnfiledThread[] {
+  return [...threads].sort((a, b) => String(b.last_activity_at).localeCompare(String(a.last_activity_at)));
+}
+
+function sampleUnlinkedTitlesForBucket(
+  threads: UnfiledThread[],
+  bucket: InboxThreadBucket,
+  max: number,
+): Array<{ threadId: string; title: string }> {
+  return sortUnfiledByActivityDesc(threads.filter((t) => deriveInboxThreadBucket(t) === bucket))
+    .slice(0, max)
+    .map((t) => ({
+      threadId: t.id,
+      title: (t.title || "").replace(/\s+/g, " ").trim().slice(0, 200) || "(no title)",
+    }));
+}
+
+/**
+ * Deterministic priority hints from counts only (Slice 3 refinement). Exported for tests.
+ */
+export function deriveOperatorQueueHighlights(
+  counts: AssistantOperatorStateSummary["counts"],
+): string[] {
+  const lines: string[] = [];
+  const c = counts;
+  if (c.openEscalations > 0) {
+    lines.push(
+      `Open escalations: ${c.openEscalations} — typically highest-touch; **Review** Zen tab (with operator-review threads).`,
+    );
+  }
+  if (c.unlinked.operatorReview > 0) {
+    lines.push(`Unlinked operator-review threads: ${c.unlinked.operatorReview} — **Review** Zen tab.`);
+  }
+  if (c.pendingApprovalDrafts > 0) {
+    lines.push(`Drafts pending your approval: ${c.pendingApprovalDrafts} — **Drafts** Zen tab.`);
+  }
+  if (c.openTasks > 0) {
+    lines.push(
+      `Open tasks: ${c.openTasks} — **Tasks** in Today (**not** included in Zen tab totals).`,
+    );
+  }
+  if (c.unlinked.inquiry > 0) {
+    lines.push(
+      `Unlinked inquiry threads: ${c.unlinked.inquiry} — **Leads** Zen tab (with linked open leads).`,
+    );
+  }
+  if (c.linkedOpenLeads > 0) {
+    lines.push(`Linked open-lead threads (pre-booking): ${c.linkedOpenLeads} — **Leads** Zen tab.`);
+  }
+  if (c.unlinked.needsFiling > 0) {
+    lines.push(`Unlinked needs-filing threads: ${c.unlinked.needsFiling} — **Needs filing** Zen tab.`);
+  }
+  if (lines.length === 0) {
+    lines.push(
+      "All snapshot counters are zero — no drafts, tasks, escalations, or inbox-queue threads in this read. Do not invent backlog; data may have changed after snapshot time.",
+    );
+  }
+  return lines.slice(0, 8);
+}
+
+const IDLE_OPERATOR_STATE_COUNTS: AssistantOperatorStateSummary["counts"] = {
+  pendingApprovalDrafts: 0,
+  openTasks: 0,
+  openEscalations: 0,
+  linkedOpenLeads: 0,
+  unlinked: { inquiry: 0, needsFiling: 0, operatorReview: 0, suppressed: 0 },
+  zenTabs: { review: 0, drafts: 0, leads: 0, needs_filing: 0 },
+};
+
+/** Placeholder for tests / stubs when operator state is not loaded. */
+export const IDLE_ASSISTANT_OPERATOR_STATE_SUMMARY: AssistantOperatorStateSummary = {
+  fetchedAt: "1970-01-01T00:00:00.000Z",
+  sourcesNote: "",
+  counts: IDLE_OPERATOR_STATE_COUNTS,
+  queueHighlights: deriveOperatorQueueHighlights(IDLE_OPERATOR_STATE_COUNTS),
+  samples: {
+    pendingDrafts: [],
+    openEscalations: [],
+    openTasks: [],
+    topActions: [],
+    linkedLeads: [],
+    unlinkedBuckets: { inquiry: [], needsFiling: [], operatorReview: [] },
+  },
+};
 
 function actionSampleLabel(a: TodayAction): string {
   switch (a.action_type) {
@@ -201,28 +292,50 @@ export async function fetchAssistantOperatorStateSummary(
     typeLabel: actionSampleLabel(a),
   }));
 
+  const unlinkedNonSuppressed = unfiledThreads.filter((t) => !isSuppressedInboxThread(t));
+  const linkedLeadSamples = sortUnfiledByActivityDesc(linkedLeadThreads)
+    .slice(0, MAX_SAMPLE_LINKED_LEADS)
+    .map((t) => ({
+      threadId: t.id,
+      title: (t.title || "").replace(/\s+/g, " ").trim().slice(0, 200) || "(no title)",
+      subtitle: getLinkedLeadSubtitle(t),
+    }));
+
+  const counts = {
+    pendingApprovalDrafts: drafts.length,
+    openTasks: tasks.length,
+    openEscalations: escalations.length,
+    linkedOpenLeads: linkedLeadThreads.length,
+    unlinked: unlinkedTallies,
+    zenTabs: {
+      review: zt.review,
+      drafts: zt.drafts,
+      leads: zt.leads,
+      needs_filing: zt.needs_filing,
+    },
+  };
+
   return {
     fetchedAt,
     sourcesNote:
       "Aligned with the Today / Zen action feed: v_pending_approval_drafts, v_open_tasks_with_wedding, open escalation_requests, v_threads_inbox_latest_message, deriveInboxThreadBucket, INQUIRY_STAGES.",
-    counts: {
-      pendingApprovalDrafts: drafts.length,
-      openTasks: tasks.length,
-      openEscalations: escalations.length,
-      linkedOpenLeads: linkedLeadThreads.length,
-      unlinked: unlinkedTallies,
-      zenTabs: {
-        review: zt.review,
-        drafts: zt.drafts,
-        leads: zt.leads,
-        needs_filing: zt.needs_filing,
-      },
-    },
+    counts,
+    queueHighlights: deriveOperatorQueueHighlights(counts),
     samples: {
       pendingDrafts: draftSamples,
       openEscalations: escalationSamples,
       openTasks: taskSamples,
       topActions,
+      linkedLeads: linkedLeadSamples,
+      unlinkedBuckets: {
+        inquiry: sampleUnlinkedTitlesForBucket(unlinkedNonSuppressed, "inquiry", MAX_SAMPLES_PER_UNLINKED_BUCKET),
+        needsFiling: sampleUnlinkedTitlesForBucket(unlinkedNonSuppressed, "unfiled", MAX_SAMPLES_PER_UNLINKED_BUCKET),
+        operatorReview: sampleUnlinkedTitlesForBucket(
+          unlinkedNonSuppressed,
+          "operator_review",
+          MAX_SAMPLES_PER_UNLINKED_BUCKET,
+        ),
+      },
     },
   };
 }

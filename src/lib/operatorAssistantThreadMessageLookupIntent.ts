@@ -8,8 +8,11 @@ const TOPIC_STOP = new Set(
 about what when where which who how why that this there then than our your their
 do did does can could should would not no yes just only very more much
 please thanks hello hi hey ok okay app help settings weather package balance
-phone call calls got another other too also did does doing done
-sent send sending email emails thread threads message messages`.split(/\s+/),
+phone phones call calls got another other too also did does doing done
+sent send sending email emails thread threads message messages
+regarding question questions quick career student project projects
+maybe perhaps received somebody someone anybody anyone everyone
+today yesterday week recently thing things stuff idea ideas`.split(/\s+/),
 );
 
 /** Max topic keywords scored against inbox rows (title + latest sender + snippet). */
@@ -103,10 +106,33 @@ export function extractOperatorInboxThreadLookupSignals(queryText: string): Oper
 }
 
 /**
+ * Body-level questions (“what did they say?”, “what is this email about?”).
+ * Used to widen thread retrieval and optionally load bounded `messages.body` excerpts.
+ */
+export function hasOperatorThreadMessageBodyLookupIntent(queryText: string): boolean {
+  const s = String(queryText ?? "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+  if (s.length < 8) return false;
+
+  if (/\bwhat\s+did\s+(they|he|she|the client|the couple)\s+say\b/.test(s)) return true;
+  if (/\bwhat\s+did\s+we\s+say\b/.test(s)) return true;
+  if (/\bwhat\s+(does|did)\s+the\s+(email|message)\s+say\b/.test(s)) return true;
+  if (/\bwhat\s+is\s+(the|this)\s+(email|message|thread)\s+about\b/.test(s)) return true;
+  if (/\bwhat\s+do\s+they\s+want\b/.test(s)) return true;
+  if (/\b(summarize|summarise)\s+(the\s+)?(email|message|thread)\b/.test(s)) return true;
+  if (/\b(email|message)\s+(body|content|text)\b/.test(s)) return true;
+  if (/\bquote\s+(the\s+)?(email|message)\b/.test(s)) return true;
+  return false;
+}
+
+/**
  * True when the operator is likely asking about thread activity, email sends, or last contact.
  * Kept conservative: unrelated CRM questions should not match.
  */
 export function hasOperatorThreadMessageLookupIntent(queryText: string): boolean {
+  if (hasOperatorThreadMessageBodyLookupIntent(queryText)) return true;
   const s = String(queryText ?? "")
     .toLowerCase()
     .replace(/\s+/g, " ")

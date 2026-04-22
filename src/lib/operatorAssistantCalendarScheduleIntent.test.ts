@@ -33,6 +33,20 @@ describe("hasOperatorCalendarScheduleIntent", () => {
     ).toBe(false);
   });
 
+  it("is false for lead wording with weekend (still analytics, not schedule)", () => {
+    expect(hasOperatorCalendarScheduleIntent("How many leads came in this weekend?")).toBe(false);
+  });
+
+  it("is true for weekend and ISO-date schedule questions", () => {
+    expect(hasOperatorCalendarScheduleIntent("What's on this weekend?")).toBe(true);
+    expect(hasOperatorCalendarScheduleIntent("Anything on my calendar next weekend?")).toBe(true);
+    expect(hasOperatorCalendarScheduleIntent("Do I have shoots on 2026-08-20?")).toBe(true);
+  });
+
+  it("is true for availability phrasing tied to a time hint", () => {
+    expect(hasOperatorCalendarScheduleIntent("What's my availability look like on Tuesday?")).toBe(true);
+  });
+
   it("is false for very short input", () => {
     expect(hasOperatorCalendarScheduleIntent("ok")).toBe(false);
   });

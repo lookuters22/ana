@@ -1,4 +1,5 @@
 import type { AgentContext } from "./agent.types.ts";
+import type { OperatorAnaTriage } from "../lib/operatorAnaTriage.ts";
 import type { OperatorAnaCarryForwardForLlm } from "./operatorAnaCarryForward.types.ts";
 import type {
   AuthorizedCaseExceptionRow,
@@ -78,11 +79,24 @@ export type AssistantOperatorStateSummary = {
       needs_filing: number;
     };
   };
+  /**
+   * Deterministic lines derived **only** from `counts` (Slice 3 refinement). For prompt grounding;
+   * not a separate data fetch.
+   */
+  queueHighlights: string[];
   samples: {
     pendingDrafts: Array<{ id: string; title: string; subtitle: string }>;
     openEscalations: Array<{ id: string; title: string; actionKey: string }>;
     openTasks: Array<{ id: string; title: string; dueDate: string; subtitle: string | null }>;
     topActions: Array<{ id: string; title: string; typeLabel: string }>;
+    /** Linked pre-booking threads (titles only), newest activity first. */
+    linkedLeads: Array<{ threadId: string; title: string; subtitle: string }>;
+    /** Recent unlinked threads per inbox bucket (non-suppressed), titles only. */
+    unlinkedBuckets: {
+      inquiry: Array<{ threadId: string; title: string }>;
+      needsFiling: Array<{ threadId: string; title: string }>;
+      operatorReview: Array<{ threadId: string; title: string }>;
+    };
   };
 };
 
@@ -175,6 +189,30 @@ export type AssistantOperatorThreadMessageLookup = {
     lastInboundAt: string | null;
     lastOutboundAt: string | null;
   }>;
+};
+
+/** One message row excerpt for operator body-level Q&A (read-only, bounded). */
+export type AssistantOperatorThreadMessageBodyRow = {
+  messageId: string;
+  direction: string;
+  sender: string;
+  sentAt: string;
+  bodyExcerpt: string;
+  bodyClipped: boolean;
+};
+
+/**
+ * Bounded `messages.body` excerpts for a **single** thread (tenant-scoped).
+ * Loaded when body-level intent matches and the thread list narrowed to one row, or via **operator_lookup_thread_messages**.
+ */
+export type AssistantOperatorThreadMessageBodiesSnapshot = {
+  didRun: boolean;
+  selectionNote: string;
+  threadId: string | null;
+  threadTitle: string | null;
+  messages: AssistantOperatorThreadMessageBodyRow[];
+  /** True if any body was clipped or the message count hit the cap. */
+  truncatedOverall: boolean;
 };
 
 /**
@@ -300,6 +338,11 @@ export type AssistantStudioAnalysisSnapshot = {
   window: { monthsBack: number; cutoffDateIso: string };
   /** Projects included after rolling window + fetch cap. */
   projectCount: number;
+  /**
+   * Deterministic grounding lines (Slice 12 hardening): window, caps, confidence, what each aggregate means.
+   * Render before JSON in the operator prompt.
+   */
+  evidenceNotes: string[];
   stageDistribution: Record<string, number>;
   byStage: Array<{ stage: string; count: number }>;
   projectTypeMix: Array<{ project_type: string; count: number }>;
@@ -365,6 +408,7 @@ export type AssistantRetrievalLog = {
     | "studio_analysis_snapshot"
     | "operator_query_entity_resolution"
     | "operator_thread_message_lookup"
+    | "operator_thread_message_bodies"
     | "operator_inquiry_count_snapshot"
     | "operator_calendar_snapshot"
   >;
@@ -400,6 +444,12 @@ export type AssistantRetrievalLog = {
     didRun: boolean;
     threadCount: number;
   };
+  /** Bounded `messages.body` excerpts for one thread (optional). */
+  threadMessageBodies?: {
+    didRun: boolean;
+    messageCount: number;
+    truncated: boolean;
+  };
   /** Gated: first-inbound–based inquiry counts in UTC day/week windows. */
   inquiryCountSnapshot?: {
     didRun: boolean;
@@ -414,6 +464,8 @@ export type AssistantRetrievalLog = {
     rowCount: number;
     lookupMode: AssistantOperatorCalendarLookupMode;
   };
+  /** True when query matched operator queue / workload intent (Slice 3 refinement). */
+  operatorQueueIntentMatched?: boolean;
   /** Operator Ana: second-pass read-only tool invocations (same HTTP response as `retrievalLog`). */
   readOnlyLookupTools?: Array<{ name: string; ok: boolean; detail?: string }>;
   /** Always present — compact playbook index for “coverage” questions. */
@@ -481,6 +533,11 @@ export type AssistantContext = {
    */
   operatorThreadMessageLookup: AssistantOperatorThreadMessageLookup;
   /**
+   * Bounded recent message **bodies** for one thread (optional first-pass auto-load or tool).
+   * See {@link hasOperatorThreadMessageBodyLookupIntent} and **operator_lookup_thread_messages**.
+   */
+  operatorThreadMessageBodies: AssistantOperatorThreadMessageBodiesSnapshot;
+  /**
    * Gated: UTC window inquiry arrival counts (today / yesterday / this & last ISO week) for operator
    * “how many inquiries…” questions. Not a full BI report.
    */
@@ -512,6 +569,10 @@ export type AssistantContext = {
    * `null` when the client did not send a valid carry-forward or there is nothing to show.
    */
   carryForward: OperatorAnaCarryForwardForLlm | null;
+  /**
+   * Slice A2 — deterministic triage v1 (hint + telemetry only). `reason` is for logs, not the LLM prompt.
+   */
+  operatorTriage: OperatorAnaTriage;
 };
 
 export type BuildAssistantContextInput = {

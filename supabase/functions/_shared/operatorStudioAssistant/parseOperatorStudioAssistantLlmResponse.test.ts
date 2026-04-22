@@ -1,5 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi, afterEach } from "vitest";
 import { parseOperatorStudioAssistantLlmResponse } from "./parseOperatorStudioAssistantLlmResponse.ts";
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 describe("parseOperatorStudioAssistantLlmResponse", () => {
   it("parses JSON with empty proposals", () => {
@@ -42,6 +46,21 @@ describe("parseOperatorStudioAssistantLlmResponse", () => {
     if (o.proposedActions[0]!.kind === "task") {
       expect(o.proposedActions[0].title).toBe("Follow up with planner");
       expect(o.proposedActions[0].dueDate).toBe("2026-06-15");
+    }
+  });
+
+  it("Slice 7+: task without dueDate defaults to today UTC in parsed proposal", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-01T12:00:00.000Z"));
+    const o = parseOperatorStudioAssistantLlmResponse(
+      JSON.stringify({
+        reply: "Staged for today — confirm below.",
+        proposedActions: [{ kind: "task", title: "Ping the florist" }],
+      }),
+    );
+    expect(o.proposedActions).toHaveLength(1);
+    if (o.proposedActions[0]!.kind === "task") {
+      expect(o.proposedActions[0].dueDate).toBe("2026-08-01");
     }
   });
 

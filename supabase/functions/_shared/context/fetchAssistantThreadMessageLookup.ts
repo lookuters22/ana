@@ -168,6 +168,12 @@ function scoreInboxRow(
   row: InboxViewRow,
   signals: OperatorInboxThreadLookupSignals,
   windows: ReturnType<typeof computeUtcInquiryCountWindows>,
+  /**
+   * When there is no resolved wedding/person target, require a higher score for the
+   * "one topic hit + recency" strong path so body-snippet + calendar noise does not
+   * outrank substantive title/topic overlap (bounded open-inbox retrieval).
+   */
+  openInboxLookup: boolean,
 ): ScoredInbox {
   const { blob, titleN, senderN, bodyN } = inboxHaystack(row);
   let score = 0;
@@ -217,10 +223,16 @@ function scoreInboxRow(
     score += 6;
   }
 
+  const recencyTopicStrong =
+    topicHits >= 1 &&
+    signals.recency != null &&
+    recencyOk &&
+    (!openInboxLookup || score >= 12);
+
   const strong =
     topicHits >= 2 ||
     (topicHits >= 1 && senderHit) ||
-    (topicHits >= 1 && signals.recency != null && recencyOk) ||
+    recencyTopicStrong ||
     score >= 18;
 
   return { row, score, strong: strong && score >= 6 };
@@ -231,6 +243,7 @@ async function fetchScoredInboxMatches(
   photographerId: string,
   signals: OperatorInboxThreadLookupSignals,
   now: Date,
+  openInboxLookup: boolean,
 ): Promise<ScoredInbox[]> {
   const windows = computeUtcInquiryCountWindows(now);
   let q = supabase
@@ -257,7 +270,7 @@ async function fetchScoredInboxMatches(
   }
   const rows = (data ?? []) as unknown as InboxViewRow[];
   const scored = rows
-    .map((row) => scoreInboxRow(row, signals, windows))
+    .map((row) => scoreInboxRow(row, signals, windows, openInboxLookup))
     .filter((s) => s.score > 0)
     .sort((a, b) => b.score - a.score || b.row.last_activity_at.localeCompare(a.row.last_activity_at));
   return scored;
@@ -424,7 +437,8 @@ export async function fetchAssistantThreadMessageLookup(
     signals.recency != null;
 
   if (shouldRunInboxScore) {
-    const scored = await fetchScoredInboxMatches(supabase, photographerId, signals, now);
+    const openInboxLookup = !hasTarget;
+    const scored = await fetchScoredInboxMatches(supabase, photographerId, signals, now, openInboxLookup);
     const strong = scored.filter((s) => s.strong);
     const weak = scored.filter((s) => !s.strong && s.score >= 8);
     const pickIds = [...strong, ...weak].map((s) => s.row.id);
