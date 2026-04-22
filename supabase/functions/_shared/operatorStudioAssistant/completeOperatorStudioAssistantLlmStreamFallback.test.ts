@@ -135,6 +135,8 @@ function deltaLine(content: string) {
 describe("completeOperatorStudioAssistantLlmStreaming — zero stream fallback (mocked dead extractor)", () => {
   const origKey = process.env.OPENAI_API_KEY;
   beforeEach(() => {
+    delete process.env.ANA_LLM_PROVIDER;
+    delete process.env.ANA_LLM_MODEL;
     process.env.OPENAI_API_KEY = "test";
     lookupExecuteMock.mockReset();
     lookupExecuteMock.mockResolvedValue(

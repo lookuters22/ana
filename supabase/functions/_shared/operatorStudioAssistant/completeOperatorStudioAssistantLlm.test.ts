@@ -438,8 +438,12 @@ describe("OPERATOR_STUDIO_ASSISTANT_SYSTEM_PROMPT (Slice 2)", () => {
 
 describe("completeOperatorStudioAssistantLlm (mocked OpenAI)", () => {
   const originalKey = process.env.OPENAI_API_KEY;
+  const originalAnaProvider = process.env.ANA_LLM_PROVIDER;
+  const originalAnaModel = process.env.ANA_LLM_MODEL;
 
   beforeEach(() => {
+    delete process.env.ANA_LLM_PROVIDER;
+    delete process.env.ANA_LLM_MODEL;
     process.env.OPENAI_API_KEY = "test-key-slice2";
     lookupExecuteMock.mockReset();
     lookupExecuteMock.mockResolvedValue(
@@ -449,6 +453,10 @@ describe("completeOperatorStudioAssistantLlm (mocked OpenAI)", () => {
 
   afterEach(() => {
     process.env.OPENAI_API_KEY = originalKey;
+    if (originalAnaProvider === undefined) delete process.env.ANA_LLM_PROVIDER;
+    else process.env.ANA_LLM_PROVIDER = originalAnaProvider;
+    if (originalAnaModel === undefined) delete process.env.ANA_LLM_MODEL;
+    else process.env.ANA_LLM_MODEL = originalAnaModel;
     vi.restoreAllMocks();
   });
 
@@ -485,7 +493,7 @@ describe("completeOperatorStudioAssistantLlm (mocked OpenAI)", () => {
       tools?: unknown[];
       messages: { role: string; content: string }[];
     };
-    expect(body.model).toBe("gpt-4.1-mini");
+    expect(body.model).toBe("gpt-4o-mini");
     expect(body.response_format).toEqual({ type: "json_object" });
     expect(body.tools).toBeUndefined();
     expect(body.messages).toHaveLength(2);
@@ -1581,6 +1589,130 @@ describe("completeOperatorStudioAssistantLlm (mocked OpenAI)", () => {
   });
 });
 
+describe("completeOperatorStudioAssistantLlm (mocked Google Gemini)", () => {
+  const originalKey = process.env.OPENAI_API_KEY;
+  const originalAnaProvider = process.env.ANA_LLM_PROVIDER;
+  const originalAnaModel = process.env.ANA_LLM_MODEL;
+  const originalGemini = process.env.GEMINI_API_KEY;
+
+  beforeEach(() => {
+    process.env.ANA_LLM_PROVIDER = "google";
+    delete process.env.ANA_LLM_MODEL;
+    process.env.GEMINI_API_KEY = "gemini-test-key";
+    delete process.env.OPENAI_API_KEY;
+    lookupExecuteMock.mockReset();
+    lookupExecuteMock.mockResolvedValue(
+      JSON.stringify({ tool: "operator_lookup_projects", result: { mocked: true } }),
+    );
+  });
+
+  afterEach(() => {
+    if (originalKey === undefined) delete process.env.OPENAI_API_KEY;
+    else process.env.OPENAI_API_KEY = originalKey;
+    if (originalAnaProvider === undefined) delete process.env.ANA_LLM_PROVIDER;
+    else process.env.ANA_LLM_PROVIDER = originalAnaProvider;
+    if (originalAnaModel === undefined) delete process.env.ANA_LLM_MODEL;
+    else process.env.ANA_LLM_MODEL = originalAnaModel;
+    if (originalGemini === undefined) delete process.env.GEMINI_API_KEY;
+    else process.env.GEMINI_API_KEY = originalGemini;
+    vi.restoreAllMocks();
+  });
+
+  it("calls Gemini generateContent with JSON mime type and parses reply", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          candidates: [
+            {
+              content: {
+                parts: [
+                  {
+                    text: JSON.stringify({
+                      reply: "Hi from Gemini",
+                      proposedActions: [],
+                    }),
+                  },
+                ],
+              },
+            },
+          ],
+        }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const out = await completeOperatorStudioAssistantLlm(minimalAssistantContext());
+    expect(out.reply).toBe("Hi from Gemini");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(String(url)).toContain("generativelanguage.googleapis.com");
+    expect(String(url)).toContain("gemini-2.5-flash");
+    expect(String(url)).toContain("key=gemini-test-key");
+    const body = JSON.parse(String(init.body)) as {
+      generationConfig: { responseMimeType?: string };
+      systemInstruction: { parts: { text: string }[] };
+    };
+    expect(body.generationConfig.responseMimeType).toBe("application/json");
+    expect(body.systemInstruction.parts[0]!.text).toContain("You are Ana in the studio operator dashboard");
+  });
+
+  it("does not run read-only lookup tools when supabase is set (Gemini has no tool round yet)", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          candidates: [
+            {
+              content: {
+                parts: [
+                  {
+                    text: JSON.stringify({ reply: "Context-only", proposedActions: [] }),
+                  },
+                ],
+              },
+            },
+          ],
+        }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    await completeOperatorStudioAssistantLlm(minimalAssistantContext({ queryText: "lookup?" }), {
+      supabase: fakeSupabase,
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(String(fetchMock.mock.calls[0]![0])).toContain("generativelanguage.googleapis.com");
+    expect(lookupExecuteMock).not.toHaveBeenCalled();
+  });
+
+  it("streaming uses one Gemini request then emits reply tokens from the JSON payload", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          candidates: [
+            {
+              content: {
+                parts: [
+                  {
+                    text: JSON.stringify({ reply: "Stream gemini", proposedActions: [] }),
+                  },
+                ],
+              },
+            },
+          ],
+        }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const toks: string[] = [];
+    const out = await completeOperatorStudioAssistantLlmStreaming(
+      minimalAssistantContext(),
+      {},
+      (d) => toks.push(d),
+    );
+    expect(out.reply).toBe("Stream gemini");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(toks.join("")).toContain("Stream gemini");
+  });
+});
+
 const sseTe = new TextEncoder();
 function dataLineFromObj(obj: unknown) {
   return "data: " + JSON.stringify(obj) + "\n";
@@ -1616,7 +1748,11 @@ function deltaLineTools(
 
 describe("completeOperatorStudioAssistantLlmStreaming (mocked OpenAI stream)", () => {
   const originalKey = process.env.OPENAI_API_KEY;
+  const originalAnaProvider = process.env.ANA_LLM_PROVIDER;
+  const originalAnaModel = process.env.ANA_LLM_MODEL;
   beforeEach(() => {
+    delete process.env.ANA_LLM_PROVIDER;
+    delete process.env.ANA_LLM_MODEL;
     process.env.OPENAI_API_KEY = "test-key-slice2";
     lookupExecuteMock.mockReset();
     lookupExecuteMock.mockResolvedValue(
@@ -1625,6 +1761,10 @@ describe("completeOperatorStudioAssistantLlmStreaming (mocked OpenAI stream)", (
   });
   afterEach(() => {
     process.env.OPENAI_API_KEY = originalKey;
+    if (originalAnaProvider === undefined) delete process.env.ANA_LLM_PROVIDER;
+    else process.env.ANA_LLM_PROVIDER = originalAnaProvider;
+    if (originalAnaModel === undefined) delete process.env.ANA_LLM_MODEL;
+    else process.env.ANA_LLM_MODEL = originalAnaModel;
     vi.restoreAllMocks();
   });
   it("1. no-tools path streams reply deltas; final parse matches", async () => {

@@ -19,8 +19,24 @@ import {
   type OperatorStudioAssistantLlmResult,
 } from "./parseOperatorStudioAssistantLlmResponse.ts";
 import { createReplyExtractor } from "./streamingReplyExtractor.ts";
+import { getOperatorAnaLlmProviderConfig } from "./operatorAnaLlmProviderConfig.ts";
+import {
+  postGeminiGenerateContentJson,
+  splitSystemAndGeminiContents,
+} from "./operatorStudioAssistantGemini.ts";
 
 export type { OperatorStudioAssistantLlmResult };
+
+/** One JSON line per LLM turn — use function logs / `supabase functions serve` stdout to verify OpenAI vs Gemini. */
+function logResolvedOperatorAnaLlmProvider(llmCfg: ReturnType<typeof getOperatorAnaLlmProviderConfig>) {
+  console.log(
+    JSON.stringify({
+      type: "operator_assistant_llm_provider_resolved",
+      provider: llmCfg.provider,
+      model: llmCfg.model,
+    }),
+  );
+}
 
 /** Appended to {@link OPERATOR_STUDIO_ASSISTANT_SYSTEM_PROMPT} when {@link AssistantContext.escalationResolverFocus} is set (S1). */
 export function escalationResolverModeSystemAddendum(ctx: AssistantContext): string {
@@ -485,10 +501,8 @@ export async function completeOperatorStudioAssistantLlmStreaming(
   options: CompleteOperatorStudioAssistantLlmOptions,
   onToken: OnOperatorStudioAssistantLlmToken,
 ): Promise<OperatorStudioAssistantLlmResult> {
-  const apiKey = Deno.env.get("OPENAI_API_KEY");
-  if (!apiKey) {
-    throw new Error("Missing OPENAI_API_KEY");
-  }
+  const llmCfg = getOperatorAnaLlmProviderConfig();
+  logResolvedOperatorAnaLlmProvider(llmCfg);
   const streamSignal = options.signal;
   let streamedTokenPayloadChars = 0;
   const onStreamDelta: OnOperatorStudioAssistantLlmToken = (d) => {
@@ -513,6 +527,41 @@ export async function completeOperatorStudioAssistantLlmStreaming(
     { role: "user", content: userContent },
   ];
 
+  if (llmCfg.provider === "google") {
+    const geminiKey = Deno.env.get("GEMINI_API_KEY");
+    if (!geminiKey) {
+      throw new Error("Missing GEMINI_API_KEY");
+    }
+    if (options.supabase) {
+      console.warn(
+        "[operator_assistant_llm] ANA_LLM_PROVIDER=google: skipping read-only operator_lookup_* tools; responses use Context and session only. For tool-backed lookups use ANA_LLM_PROVIDER=openai (default).",
+      );
+    }
+    const { systemInstruction, contents } = splitSystemAndGeminiContents(baseMessages);
+    const text = await postGeminiGenerateContentJson({
+      apiKey: geminiKey,
+      model: llmCfg.model,
+      systemInstruction,
+      contents,
+      signal: streamSignal,
+    });
+    const parsed = parseOperatorStudioAssistantLlmResponse(text);
+    const exGem = createReplyExtractor();
+    const chunk = 56;
+    for (let i = 0; i < text.length; i += chunk) {
+      feedExtractor(exGem, text.slice(i, i + chunk), onStreamDelta);
+      await Promise.resolve();
+    }
+    const vis = getVisibleReplyForStreamFallback(text);
+    if (vis && streamedTokenPayloadChars === 0) onStreamDelta(vis);
+    return parsed;
+  }
+
+  const apiKey = Deno.env.get("OPENAI_API_KEY");
+  if (!apiKey) {
+    throw new Error("Missing OPENAI_API_KEY");
+  }
+
   const trace: NonNullable<OperatorStudioAssistantLlmResult["readOnlyLookupToolTrace"]> = [];
   const toolOutcomes: Array<{
     name: string;
@@ -528,7 +577,7 @@ export async function completeOperatorStudioAssistantLlmStreaming(
     await postOpenAiChatCompletionsStream(
       apiKey,
       {
-        model: "gpt-4.1-mini",
+        model: llmCfg.model,
         temperature: 0.25,
         max_tokens: 1600,
         response_format: { type: "json_object" },
@@ -559,7 +608,7 @@ export async function completeOperatorStudioAssistantLlmStreaming(
   await postOpenAiChatCompletionsStream(
     apiKey,
     {
-      model: "gpt-4.1-mini",
+      model: llmCfg.model,
       temperature: 0.25,
       max_tokens: 1600,
       tools: OPERATOR_READ_ONLY_LOOKUP_TOOLS,
@@ -672,7 +721,7 @@ export async function completeOperatorStudioAssistantLlmStreaming(
   await postOpenAiChatCompletionsStream(
     apiKey,
     {
-      model: "gpt-4.1-mini",
+      model: llmCfg.model,
       temperature: 0.25,
       max_tokens: 1600,
       response_format: { type: "json_object" },
@@ -707,10 +756,8 @@ export async function completeOperatorStudioAssistantLlm(
   ctx: AssistantContext,
   options: CompleteOperatorStudioAssistantLlmOptions = {},
 ): Promise<OperatorStudioAssistantLlmResult> {
-  const apiKey = Deno.env.get("OPENAI_API_KEY");
-  if (!apiKey) {
-    throw new Error("Missing OPENAI_API_KEY");
-  }
+  const llmCfg = getOperatorAnaLlmProviderConfig();
+  logResolvedOperatorAnaLlmProvider(llmCfg);
 
   const weatherToolMarkdown = await buildOperatorAssistantWeatherMarkdown(ctx);
   const userContent = formatAssistantContextForOperatorLlm(ctx, { weatherToolMarkdown });
@@ -728,12 +775,37 @@ export async function completeOperatorStudioAssistantLlm(
     { role: "user", content: userContent },
   ];
 
+  if (llmCfg.provider === "google") {
+    const geminiKey = Deno.env.get("GEMINI_API_KEY");
+    if (!geminiKey) {
+      throw new Error("Missing GEMINI_API_KEY");
+    }
+    if (options.supabase) {
+      console.warn(
+        "[operator_assistant_llm] ANA_LLM_PROVIDER=google: skipping read-only operator_lookup_* tools; responses use Context and session only. For tool-backed lookups use ANA_LLM_PROVIDER=openai (default).",
+      );
+    }
+    const { systemInstruction, contents } = splitSystemAndGeminiContents(baseMessages);
+    const text = await postGeminiGenerateContentJson({
+      apiKey: geminiKey,
+      model: llmCfg.model,
+      systemInstruction,
+      contents,
+    });
+    return parseOperatorStudioAssistantLlmResponse(text);
+  }
+
+  const apiKey = Deno.env.get("OPENAI_API_KEY");
+  if (!apiKey) {
+    throw new Error("Missing OPENAI_API_KEY");
+  }
+
   const trace: NonNullable<OperatorStudioAssistantLlmResult["readOnlyLookupToolTrace"]> = [];
   const toolOutcomes: Array<{ name: string; ok: boolean; content: string }> = [];
 
   if (!options.supabase) {
     const json = await postOpenAiChatCompletions(apiKey, {
-      model: "gpt-4.1-mini",
+      model: llmCfg.model,
       temperature: 0.25,
       max_tokens: 1600,
       response_format: { type: "json_object" },
@@ -747,7 +819,7 @@ export async function completeOperatorStudioAssistantLlm(
   }
 
   const first = await postOpenAiChatCompletions(apiKey, {
-    model: "gpt-4.1-mini",
+    model: llmCfg.model,
     temperature: 0.25,
     max_tokens: 1600,
     tools: OPERATOR_READ_ONLY_LOOKUP_TOOLS,
@@ -839,7 +911,7 @@ export async function completeOperatorStudioAssistantLlm(
   );
 
   const second = await postOpenAiChatCompletions(apiKey, {
-    model: "gpt-4.1-mini",
+    model: llmCfg.model,
     temperature: 0.25,
     max_tokens: 1600,
     response_format: { type: "json_object" },
