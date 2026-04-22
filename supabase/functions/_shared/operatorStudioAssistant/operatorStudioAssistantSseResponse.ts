@@ -74,18 +74,42 @@ export function createOperatorStudioAssistantSseResponse(
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
       void (async () => {
+        let debugTokenEmitCount = 0;
+        const streamDebug = Deno.env.get("OPERATOR_ASSISTANT_STREAM_DEBUG") === "true";
         try {
           const result = await handleOperatorStudioAssistantPostStreaming(
             supabase,
             photographerId,
             body,
             (delta) => {
+              if (streamDebug) {
+                debugTokenEmitCount += 1;
+              }
               safeEnqueue(controller, encodeSseEvent("token", { delta }));
             },
             { signal, prevalidated },
           );
+          if (streamDebug) {
+            console.log(
+              JSON.stringify({
+                type: "operator_ana_stream_debug",
+                phase: "sse_tokens_emitted",
+                tokenSseEventCount: debugTokenEmitCount,
+              }),
+            );
+          }
           safeEnqueue(controller, encodeSseEvent("done", result as unknown as Record<string, unknown>));
         } catch (e) {
+          if (streamDebug) {
+            console.log(
+              JSON.stringify({
+                type: "operator_ana_stream_debug",
+                phase: "sse_error_before_done",
+                tokenSseEventCount: debugTokenEmitCount,
+                error: briefErrorMessage(e),
+              }),
+            );
+          }
           safeEnqueue(controller, encodeSseEvent("error", { message: briefErrorMessage(e) }));
         } finally {
           try {

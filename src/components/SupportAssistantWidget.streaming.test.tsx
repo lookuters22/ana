@@ -15,6 +15,11 @@ vi.mock("../lib/supabase", () => ({
   },
 }));
 
+vi.mock("../lib/operatorAnaStreamDebug.ts", () => ({
+  operatorAnaStreamDebugEnabled: () => false,
+  logAnaStreamLine: () => {},
+}));
+
 beforeAll(() => {
   if (!window.matchMedia) {
     Object.defineProperty(window, "matchMedia", {

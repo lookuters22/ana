@@ -17,6 +17,7 @@ import {
   type OperatorStudioAssistantAssistantDisplay,
   type OperatorStudioAssistantInvokePayload,
 } from "../lib/operatorStudioAssistantWidgetResult.ts";
+import { logAnaStreamLine, operatorAnaStreamDebugEnabled } from "../lib/operatorAnaStreamDebug.ts";
 import { consumeOperatorAssistantSseStream } from "../lib/operatorStudioAssistantStreamClient.ts";
 import { getSupabaseEdgeFunctionErrorMessage } from "../lib/supabaseEdgeFunctionErrorMessage.ts";
 import {
@@ -400,6 +401,11 @@ export function SupportAssistantWidget() {
         }
         const base = (import.meta.env.VITE_SUPABASE_URL as string | undefined) ?? "";
         const url = `${String(base).replace(/\/$/, "")}/functions/v1/operator-studio-assistant`;
+        const streamDebug = operatorAnaStreamDebugEnabled();
+        const tStream0 = performance.now();
+        if (streamDebug) {
+          logAnaStreamLine("start");
+        }
         const res = await fetch(url, {
           method: "POST",
           body: JSON.stringify(requestBody),
@@ -411,6 +417,9 @@ export function SupportAssistantWidget() {
             Accept: "text/event-stream",
           },
         });
+        if (streamDebug) {
+          logAnaStreamLine(`response ${res.status} at ${Math.round(performance.now() - tStream0)}ms`);
+        }
         if (!res.ok) {
           const t = await res.text();
           let detail = t || res.statusText;
@@ -422,10 +431,19 @@ export function SupportAssistantWidget() {
           }
           throw new Error(detail);
         }
+        let streamTokenCount = 0;
         for await (const ev of consumeOperatorAssistantSseStream(res, ac.signal)) {
           if (ev.type === "token") {
             const d = (ev.data as { delta?: string } | null)?.delta;
             if (typeof d === "string" && d.length > 0) {
+              streamTokenCount += 1;
+              if (streamDebug) {
+                const ms = Math.round(performance.now() - tStream0);
+                if (streamTokenCount === 1) {
+                  logAnaStreamLine(`first non-empty token at ${ms}ms`);
+                }
+                logAnaStreamLine(`token #${streamTokenCount} (+${d.length} chars) at ${ms}ms`);
+              }
               // Avoid React batching many token updates from one read into a single paint.
               flushSync(() => {
                 setMessages((m) =>
@@ -436,6 +454,13 @@ export function SupportAssistantWidget() {
               });
             }
           } else if (ev.type === "done") {
+            if (streamDebug) {
+              const ms = Math.round(performance.now() - tStream0);
+              logAnaStreamLine(
+                `done at ${ms}ms after ${streamTokenCount} non-empty token(s)` +
+                  (streamTokenCount === 0 ? " (zero tokens before done)" : ""),
+              );
+            }
             sawDone = true;
             const payload = ev.data as OperatorStudioAssistantInvokePayload | null;
             const nextCf = payload?.carryForward;
@@ -452,11 +477,21 @@ export function SupportAssistantWidget() {
               ),
             );
           } else if (ev.type === "error") {
+            if (streamDebug) {
+              logAnaStreamLine(
+                `error event after ${streamTokenCount} token(s) at ${Math.round(performance.now() - tStream0)}ms`,
+              );
+            }
             const m0 = (ev.data as { message?: string } | null)?.message;
             throw new Error(typeof m0 === "string" && m0.length > 0 ? m0 : "Stream error");
           }
         }
         if (!sawDone) {
+          if (streamDebug) {
+            logAnaStreamLine(
+              `stream ended before done after ${streamTokenCount} token(s) at ${Math.round(performance.now() - tStream0)}ms`,
+            );
+          }
           throw new Error("Stream ended before done");
         }
       } catch (err) {
